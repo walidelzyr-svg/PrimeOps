@@ -1203,20 +1203,29 @@ async function init(){
     const { data: dept } = await supabase.from('departments').select('id').eq('code','HK').single();
     if (dept) HK_DEPT_ID = dept.id;
 
-    await reloadAssets();
-    await reloadCategories();
-    await reloadDepartments();
-    await reloadMembers();
-    await reloadRequestCategories();
+    // Reference/lookup data first, in parallel — nothing here depends on
+    // anything else in this batch, so no reason to wait on each one in turn
+    await Promise.all([
+      reloadAssets(),
+      reloadCategories(),
+      reloadDepartments(),
+      reloadMembers(),
+      reloadRequestCategories(),
+      (async () => {
+        const { data: principles } = await supabase.from('principles').select('text').eq('active', true);
+        if (principles && principles.length){
+          document.getElementById('principleText').textContent = principles[Math.floor(Math.random()*principles.length)].text;
+        }
+      })()
+    ]);
 
-    const { data: principles } = await supabase.from('principles').select('text').eq('active', true);
-    if (principles && principles.length){
-      document.getElementById('principleText').textContent = principles[Math.floor(Math.random()*principles.length)].text;
-    }
-    await loadAnnouncement();
-
-    await loadCases();
-    await loadEndorsements();
+    // Home-screen content next, also in parallel — these read department/
+    // member names from the batch above, so they run after it, not inside it
+    await Promise.all([
+      loadAnnouncement(),
+      loadCases(),
+      loadEndorsements()
+    ]);
     CONNECTED = true;
     toast('Connected to PrimeOps backend');
 
