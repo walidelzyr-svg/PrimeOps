@@ -1,4 +1,4 @@
-const CACHE = 'primeops-v4';
+const CACHE = 'primeops-v5';
 const FILES = ['./index.html', './manifest.json', './icon.svg'];
 
 self.addEventListener('install', (e) => {
@@ -21,8 +21,13 @@ self.addEventListener('fetch', (e) => {
   e.respondWith(
     fetch(e.request)
       .then((res) => {
-        const resClone = res.clone();
-        caches.open(CACHE).then((c) => c.put(e.request, resClone));
+        // Only GET responses are cacheable -- the Cache API rejects
+        // POST/PUT/etc (e.g. Supabase's auth token-refresh calls),
+        // which is what was throwing the console error.
+        if (e.request.method === 'GET') {
+          const resClone = res.clone();
+          caches.open(CACHE).then((c) => c.put(e.request, resClone)).catch(() => {});
+        }
         return res;
       })
       .catch(() => caches.match(e.request))
