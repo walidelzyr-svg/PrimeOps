@@ -877,8 +877,9 @@
         <div class="sheet-step">STEP 2 OF 4 · OTHER</div>
         <div class="field">
           <label>Brief description</label>
-          <input type="text" id="reqOtherInput" placeholder="e.g. Extra towels for a group" autofocus />
+          <input type="text" id="reqOtherInput" placeholder="e.g. Extra towels for a group" autofocus oninput="filterReqOtherSuggestions()" />
         </div>
+        <div id="reqOtherSuggestions"></div>
         <div class="login-error" id="reqOtherError"></div>
         <div class="row-btns">
           <button class="btn ghost" onclick="reqBackToCategory()">Back</button>
@@ -1317,8 +1318,11 @@ function timesLine(c){
 }
 
 async function reloadRequestCategories(){
-  const { data } = await supabase.from('request_categories').select('emoji,label').eq('active', true).order('sort_order');
-  requestCategories = data || [];
+  const { data } = await supabase.from('request_categories').select('emoji,label').eq('active', true);
+  const list = (data || []).slice().sort((a,b) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }));
+  const rest = list.filter(c => c.label !== 'Other');
+  const other = list.filter(c => c.label === 'Other');
+  requestCategories = [...rest, ...other];
 }
 
 async function loadCases(){
@@ -2617,6 +2621,8 @@ function selectReqCategory(label){
   if (label === 'Other'){
     document.getElementById('reqStep2').style.display='none';
     document.getElementById('reqStepOther').style.display='block';
+    document.getElementById('reqOtherInput').value = '';
+    document.getElementById('reqOtherSuggestions').innerHTML = '';
     document.getElementById('reqOtherInput').focus();
     return;
   }
@@ -2624,7 +2630,26 @@ function selectReqCategory(label){
   document.getElementById('reqStep2').style.display='none';
   document.getElementById('reqStep3').style.display='block';
 }
+function filterReqOtherSuggestions(){
+  const val = document.getElementById('reqOtherInput').value.trim().toLowerCase();
+  const box = document.getElementById('reqOtherSuggestions');
+  if (!val){ box.innerHTML = ''; return; }
+  const matches = requestCategories
+    .filter(c => c.label !== 'Other' && c.label.toLowerCase().includes(val))
+    .slice(0, 5);
+  if (!matches.length){ box.innerHTML = ''; return; }
+  box.innerHTML = '<div style="font-size:11px; color:var(--muted); margin:8px 0 4px;">Already exists — tap to use instead:</div>' +
+    matches.map(c => `<div class="opt" style="padding:10px 14px; margin-top:6px;" onclick="selectExistingFromOther('${c.label.replace(/'/g,"\\'")}')"><span class="e">${c.emoji}</span>${c.label}</div>`).join('');
+}
+function selectExistingFromOther(label){
+  document.getElementById('reqOtherInput').value = '';
+  document.getElementById('reqOtherSuggestions').innerHTML = '';
+  document.getElementById('reqStepOther').style.display = 'none';
+  reqState.category = label;
+  document.getElementById('reqStep3').style.display = 'block';
+}
 function reqBackToCategory(){
+  document.getElementById('reqOtherSuggestions').innerHTML = '';
   document.getElementById('reqStepOther').style.display='none';
   document.getElementById('reqStep2').style.display='block';
 }
@@ -3295,6 +3320,7 @@ Object.assign(window, {
   doLogin, doLogout, doSetPassword, backToWhere, confirmRoomNumber, selectGmStat,
   openChooser, closeChooserOnBg, chooseReport, chooseRequest,
   reqDeptNext, selectReqCategory, reqBackToCategory, reqConfirmOther, reqConfirmQuantity, submitRequest, closeRequestOnBg,
+  filterReqOtherSuggestions, selectExistingFromOther,
   showReqDeadlinePicker, hideReqDeadlinePicker, submitReqDeadlinePicked,
   chooseEndorsement, closeEndorseOnBg, endDeptNext, endConfirmMessage, submitEndorsement, acknowledgeEndorsement, closeEndorsement,
   showEndDatePicker, hideEndDatePicker, submitEndDatePicked,
