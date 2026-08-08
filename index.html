@@ -1322,7 +1322,7 @@ async function reloadRequestCategories(){
   const list = (data || []).slice().sort((a,b) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }));
   const rest = list.filter(c => c.label !== 'Other');
   const other = list.filter(c => c.label === 'Other');
-  requestCategories = [...rest, ...other];
+  requestCategories = [...other, ...rest];
 }
 
 async function loadCases(){
@@ -2610,7 +2610,7 @@ function reqDeptNext(){
 
 function buildReqCategoryGrid(){
   document.getElementById('reqCategoryGrid').innerHTML = requestCategories.map((c,i) =>
-    `<div class="opt" onclick="selectReqCategoryIdx(${i})"><span class="e">${c.emoji}</span>${c.label}</div>`
+    `<div class="opt" onclick="selectReqCategoryIdx(${i})"><span class="e">${c.emoji}</span>${c.label === 'Other' ? 'Search/Other' : c.label}</div>`
   ).join('');
 }
 function selectReqCategoryIdx(i){
