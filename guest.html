@@ -190,6 +190,7 @@ window.submitGuestRequest = async function(deptCode, label){
   const title = room ? `Guest Request: ${label} — Room ${room}` : `Guest Request: ${label}`;
   const { error } = await supabase.from('cases').insert({
     title,
+    detail_type: label,
     is_request: true,
     department_id: departmentId,
     asset_label: room ? `Room ${room}` : 'Guest Request',
