@@ -1297,10 +1297,9 @@ function memberName(id){
 function fmtTime(ts){
   if (!ts) return '';
   const d = new Date(ts);
-  const now = new Date();
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   const hm = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
-  if (d.toDateString() === now.toDateString()) return hm;
-  return `${d.getDate()}/${d.getMonth()+1} ${hm}`;
+  return `${months[d.getMonth()]} ${d.getDate()}, ${hm}`;
 }
 
 function descLine(c){
@@ -1645,6 +1644,7 @@ function endorsementCardHtml(e){
         <div class="due">Follow up: ${e.follow_up_label || 'No specific date'}</div>
         <div class="status">${ackCount > 0 ? `Acknowledged by ${ackCount}${headcount ? '/' + headcount : ''}` : 'Open'}</div>
       </div>
+      <div class="times">Sent ${fmtTime(e.created_at)}</div>
       ${replyLine}
       ${ackBtn}
       ${closeBtn}
@@ -2088,6 +2088,7 @@ function cardHtml(c){
           <div class="status">${statusLabel(c.status)}</div>
         </div>
         ${descLine(c)}
+        ${timesLine(c)}
         ${requestEditCancelBtns(c)}
       </div>
     `;
