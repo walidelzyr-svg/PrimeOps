@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+<title>Prime Asia Hotel — Guest Services</title>
+<style>
+  :root{
+    --ink:#12141C; --paper:#F3F5F9; --surface:#FFFFFF; --line:#E7EAF0;
+    --blue:#2451E8; --blue-ink:#16309C; --blue-tint:#EAF0FF;
+    --red:#E5484D; --red-tint:#FDECEC;
+    --green:#0E9F6E; --green-tint:#E7F9F1;
+    --muted:#6B7280;
+    --sans: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  }
+  *{ box-sizing:border-box; }
+  body{ margin:0; font-family:var(--sans); background:var(--paper); color:var(--ink); min-height:100vh; }
+  .wrap{ max-width:480px; margin:0 auto; padding:20px 20px 40px; }
+  .topbar{ display:flex; align-items:center; justify-content:space-between; padding:14px 0 20px; }
+  .hotel{ font-weight:800; font-size:16px; }
+  .room{ font-family:ui-monospace,monospace; font-size:12px; color:var(--muted); background:var(--surface); border:1px solid var(--line); padding:4px 10px; border-radius:20px; }
+  .lang-switch{ background:none; border:1px solid var(--line); border-radius:20px; padding:4px 10px; font-size:12px; color:var(--muted); }
+  h1{ font-size:22px; margin:4px 0 22px; }
+  .tile{ background:var(--surface); border:1px solid var(--line); border-radius:16px; padding:20px; margin-bottom:14px; display:flex; align-items:center; gap:16px; cursor:pointer; }
+  .tile .e{ font-size:30px; }
+  .tile .t{ font-weight:700; font-size:16px; }
+  .tile .s{ font-size:12px; color:var(--muted); margin-top:2px; }
+  .lang-grid{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .lang-btn{ background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:18px 10px; text-align:center; font-weight:700; font-size:15px; }
+  .lang-btn .native{ font-size:12px; color:var(--muted); font-weight:400; margin-top:4px; }
+  .back-btn{ background:none; border:none; color:var(--blue); font-weight:600; font-size:14px; padding:8px 0 16px; }
+  .confirm{ text-align:center; padding:40px 20px; }
+  .confirm .e{ font-size:48px; }
+  .confirm h2{ margin:16px 0 8px; }
+  .confirm p{ color:var(--muted); font-size:14px; }
+  .primary-btn{ width:100%; background:var(--blue); color:#fff; border:none; border-radius:12px; padding:16px; font-weight:700; font-size:15px; margin-top:8px; }
+  .hidden{ display:none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="topbar">
+    <div class="hotel">Prime Asia Hotel</div>
+    <div id="roomBadge" class="room hidden"></div>
+  </div>
+
+  <!-- Language selection -->
+  <div id="viewLang">
+    <h1 data-t="chooseLanguage">Choose your language</h1>
+    <div class="lang-grid">
+      <div class="lang-btn" onclick="setLang('en')">English</div>
+      <div class="lang-btn" onclick="setLang('fil')">Filipino<div class="native">Filipino</div></div>
+      <div class="lang-btn" onclick="setLang('ko')">Korean<div class="native">한국어</div></div>
+      <div class="lang-btn" onclick="setLang('ja')">Japanese<div class="native">日本語</div></div>
+      <div class="lang-btn" onclick="setLang('zh')">Chinese<div class="native">中文</div></div>
+    </div>
+  </div>
+
+  <!-- Main menu -->
+  <div id="viewMain" class="hidden">
+    <button class="lang-switch" onclick="showView('lang')" style="margin-bottom:16px;" data-t="changeLanguage">Change language</button>
+    <div class="tile" onclick="showView('request')">
+      <span class="e">🛎️</span>
+      <div><div class="t" data-t="requestSomething">Request Something</div><div class="s">Housekeeping, Maintenance, Reception, Luggage</div></div>
+    </div>
+    <div class="tile" onclick="showView('order')">
+      <span class="e">🍽️</span>
+      <div><div class="t" data-t="orderFoodDrinks">Order Food &amp; Drinks</div><div class="s">IMO Bar, Coppa Café</div></div>
+    </div>
+  </div>
+
+  <!-- Request Something sub-menu -->
+  <div id="viewRequest" class="hidden">
+    <button class="back-btn" onclick="showView('main')" data-t="back">← Back</button>
+    <h1 data-t="requestSomething">Request Something</h1>
+    <div class="tile" onclick="submitGuestRequest('HK', 'Housekeeping')"><span class="e">🧹</span><div class="t" data-t="housekeeping">Housekeeping</div></div>
+    <div class="tile" onclick="submitGuestRequest('ENG', 'Maintenance')"><span class="e">🔧</span><div class="t" data-t="maintenance">Maintenance</div></div>
+    <div class="tile" onclick="submitGuestRequest('FO', 'Reception')"><span class="e">🛎️</span><div class="t" data-t="reception">Reception</div></div>
+    <div class="tile" onclick="submitGuestRequest('FO', 'Luggage Assistance')"><span class="e">🧳</span><div class="t" data-t="luggage">Luggage Assistance</div></div>
+  </div>
+
+  <!-- Order Food and Drinks sub-menu -->
+  <div id="viewOrder" class="hidden">
+    <button class="back-btn" onclick="showView('main')" data-t="back">← Back</button>
+    <h1 data-t="orderFoodDrinks">Order Food &amp; Drinks</h1>
+    <div class="tile" onclick="showComingSoon()"><span class="e">🍹</span><div class="t">IMO Bar</div></div>
+    <div class="tile" onclick="showComingSoon()"><span class="e">☕</span><div class="t">Coppa Café</div></div>
+  </div>
+
+  <!-- Coming soon -->
+  <div id="viewComingSoon" class="hidden confirm">
+    <div class="e">🍽️</div>
+    <h2 data-t="comingSoonTitle">Menu coming soon</h2>
+    <p data-t="comingSoonBody">Please ask our staff for today's menu in the meantime.</p>
+    <button class="primary-btn" onclick="showView('main')" data-t="back">← Back</button>
+  </div>
+
+  <!-- Confirmation -->
+  <div id="viewConfirm" class="hidden confirm">
+    <div class="e">✅</div>
+    <h2 data-t="confirmTitle">Request sent!</h2>
+    <p data-t="confirmBody">Our team has been notified and will assist you shortly.</p>
+    <button class="primary-btn" onclick="showView('main')" data-t="back">← Back</button>
+  </div>
+
+</div>
+
+<script type="module">
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+const SUPABASE_URL = 'https://ktdnljmfnniuagwhdzas.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_s-Xj4wDiOuN6kSyWklAqBg_6n4On3Iv';
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+const T = {
+  en: { chooseLanguage:'Choose your language', changeLanguage:'Change language', requestSomething:'Request Something', orderFoodDrinks:'Order Food & Drinks', housekeeping:'Housekeeping', maintenance:'Maintenance', reception:'Reception', luggage:'Luggage Assistance', back:'← Back', confirmTitle:'Request sent!', confirmBody:'Our team has been notified and will assist you shortly.', comingSoonTitle:'Menu coming soon', comingSoonBody:"Please ask our staff for today's menu in the meantime." },
+  fil: { chooseLanguage:'Piliin ang wika', changeLanguage:'Palitan ang wika', requestSomething:'Humiling ng Serbisyo', orderFoodDrinks:'Mag-order ng Pagkain at Inumin', housekeeping:'Housekeeping', maintenance:'Maintenance', reception:'Reception', luggage:'Tulong sa Bagahe', back:'← Bumalik', confirmTitle:'Naipadala na ang iyong hiling!', confirmBody:'Naabisuhan na ang aming team at sila ay tutulong sa iyo sa lalong madaling panahon.', comingSoonTitle:'Malapit nang available ang menu', comingSoonBody:'Pakitanong na lang sa aming staff ang menu ngayong araw.' },
+  ko: { chooseLanguage:'언어를 선택하세요', changeLanguage:'언어 변경', requestSomething:'서비스 요청', orderFoodDrinks:'음식 및 음료 주문', housekeeping:'하우스키핑', maintenance:'유지보수', reception:'리셉션', luggage:'짐 도움 요청', back:'← 뒤로', confirmTitle:'요청이 전송되었습니다!', confirmBody:'저희 팀에게 알림이 전달되었으며 곧 도와드리겠습니다.', comingSoonTitle:'메뉴 준비 중', comingSoonBody:'오늘의 메뉴는 저희 직원에게 문의해 주세요.' },
+  ja: { chooseLanguage:'言語を選択してください', changeLanguage:'言語を変更', requestSomething:'サービスをリクエスト', orderFoodDrinks:'フード＆ドリンクを注文', housekeeping:'ハウスキーピング', maintenance:'メンテナンス', reception:'レセプション', luggage:'荷物のお手伝い', back:'← 戻る', confirmTitle:'リクエストを送信しました！', confirmBody:'スタッフに通知されました。まもなく対応いたします。', comingSoonTitle:'メニュー準備中', comingSoonBody:'本日のメニューはスタッフにお尋ねください。' },
+  zh: { chooseLanguage:'请选择语言', changeLanguage:'更改语言', requestSomething:'请求服务', orderFoodDrinks:'点餐和饮品', housekeeping:'客房服务', maintenance:'维修服务', reception:'前台', luggage:'行李协助', back:'← 返回', confirmTitle:'请求已发送！', confirmBody:'我们的团队已收到通知，将尽快为您提供帮助。', comingSoonTitle:'菜单即将上线', comingSoonBody:'请向我们的工作人员询问今日菜单。' }
+};
+
+let lang = 'en';
+const params = new URLSearchParams(window.location.search);
+const room = params.get('room');
+if (room){
+  document.getElementById('roomBadge').textContent = 'Room ' + room;
+  document.getElementById('roomBadge').classList.remove('hidden');
+}
+
+let deptIds = {};
+(async () => {
+  const { data } = await supabase.from('departments').select('id,code').in('code', ['HK','ENG','FO']);
+  (data || []).forEach(d => deptIds[d.code] = d.id);
+})();
+
+window.setLang = function(l){
+  lang = l;
+  applyTranslations();
+  showView('main');
+};
+
+function applyTranslations(){
+  document.querySelectorAll('[data-t]').forEach(el => {
+    const key = el.getAttribute('data-t');
+    if (T[lang] && T[lang][key]) el.textContent = T[lang][key];
+  });
+}
+
+window.showView = function(name){
+  ['lang','main','request','order','confirm','comingSoon'].forEach(v => {
+    document.getElementById('view' + v.charAt(0).toUpperCase() + v.slice(1)).classList.add('hidden');
+  });
+  document.getElementById('view' + name.charAt(0).toUpperCase() + name.slice(1)).classList.remove('hidden');
+};
+
+window.showComingSoon = function(){ showView('comingSoon'); };
+
+window.submitGuestRequest = async function(deptCode, label){
+  const departmentId = deptIds[deptCode];
+  if (!departmentId){ alert('Something went wrong — please ask our staff directly.'); return; }
+  const title = room ? `Guest Request: ${label} — Room ${room}` : `Guest Request: ${label}`;
+  const { error } = await supabase.from('cases').insert({
+    title,
+    is_request: true,
+    department_id: departmentId,
+    asset_label: room ? `Room ${room}` : 'Guest Request',
+    priority: 'medium',
+    status: 'waiting'
+  });
+  if (error){
+    console.error(error);
+    alert('Something went wrong — please ask our staff directly.');
+    return;
+  }
+  showView('confirm');
+};
+</script>
+</body>
+</html>
