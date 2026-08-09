@@ -676,6 +676,52 @@
           <div style="font-size:11px; color:var(--muted); font-weight:400; margin-top:2px;">Urgent hotel-wide FYI — visible to everyone until you remove it</div>
         </div>
       </div>
+      <div class="opt" id="guestStayOpt" onclick="chooseGuestStay()" style="padding:16px 14px; margin-top:10px; display:none; align-items:center; gap:12px; text-align:left;">
+        <span class="e" style="font-size:24px;">🏨</span>
+        <div>
+          <div>New Guest Stay</div>
+          <div style="font-size:11px; color:var(--muted); font-weight:400; margin-top:2px;">Set up guest access — generates the PIN for their room</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- New Guest Stay flow (admin/GM only) -->
+  <div class="overlay" id="guestStayOverlay" onclick="closeGuestStayOnBg(event)">
+    <div class="sheet">
+      <div class="sheet-handle"></div>
+      <div class="sheet-title">New Guest Stay</div>
+      <div class="sheet-step">SETS UP GUEST PLATFORM ACCESS FOR THIS ROOM</div>
+      <div class="field" style="margin-top:0;">
+        <label>Room</label>
+        <select id="guestStayRoom" style="width:100%; padding:12px; border:1px solid var(--line); border-radius:10px; font-size:15px;"></select>
+      </div>
+      <div class="field">
+        <label>Guest name</label>
+        <input type="text" id="guestStayName" placeholder="e.g. Juan Dela Cruz" />
+      </div>
+      <div class="field">
+        <label>Arrival date</label>
+        <input type="date" id="guestStayArrival" style="width:100%; padding:12px; border:1px solid var(--line); border-radius:10px; font-size:15px;" />
+      </div>
+      <div class="field">
+        <label>Departure date</label>
+        <input type="date" id="guestStayDeparture" style="width:100%; padding:12px; border:1px solid var(--line); border-radius:10px; font-size:15px;" />
+      </div>
+      <div class="login-error" id="guestStayError"></div>
+      <button class="btn primary" style="width:100%; margin-top:8px;" onclick="submitGuestStay()">Create & Generate PIN</button>
+    </div>
+  </div>
+
+  <!-- Guest Stay PIN result -->
+  <div class="overlay" id="guestStayPinOverlay" onclick="closeGuestStayPinOnBg(event)">
+    <div class="sheet" style="text-align:center;">
+      <div class="sheet-handle"></div>
+      <div class="sheet-title">Access is ready</div>
+      <div style="font-size:12px; color:var(--muted); margin-top:4px;">Write this down or tell the guest directly</div>
+      <div id="guestStayPinDisplay" style="font-size:44px; font-weight:800; letter-spacing:10px; margin:20px 0; font-family:var(--mono);"></div>
+      <div style="font-size:13px; color:var(--muted); margin-bottom:16px;">Locks out automatically at 12 PM on the departure date. Room's QR code is already on the key card — nothing else to hand out.</div>
+      <button class="btn primary" style="width:100%;" onclick="document.getElementById('guestStayPinOverlay').classList.remove('open')">Done</button>
     </div>
   </div>
 
@@ -1827,6 +1873,7 @@ function render(){
   document.getElementById('staffBody').style.display = hasHotelView() ? 'none' : 'block';
   document.getElementById('gmBody').style.display = hasHotelView() ? 'block' : 'none';
   document.getElementById('announceOpt').style.display = isGM() ? 'flex' : 'none';
+  document.getElementById('guestStayOpt').style.display = hasHotelView() ? 'flex' : 'none';
 
   // Tappable summary tiles: an active filter reshapes the list below
   const filters = {
@@ -2376,6 +2423,68 @@ async function loadAnnouncement(){
   } else {
     wrap.style.display = 'none';
   }
+}
+
+/* ---------------- New Guest Stay flow (admin/GM only) ---------------- */
+const ALL_ROOMS = [201,301,401,501].flatMap(start => Array.from({length:17}, (_,i) => start+i)).concat([601,602,603]);
+
+function populateGuestStayRooms(){
+  const sel = document.getElementById('guestStayRoom');
+  if (sel.options.length) return;
+  sel.innerHTML = ALL_ROOMS.map(r => `<option value="${r}">Room ${r}</option>`).join('');
+}
+
+function chooseGuestStay(){
+  document.getElementById('chooserOverlay').classList.remove('open');
+  populateGuestStayRooms();
+  document.getElementById('guestStayName').value = '';
+  document.getElementById('guestStayArrival').value = '';
+  document.getElementById('guestStayDeparture').value = '';
+  document.getElementById('guestStayError').classList.remove('show');
+  document.getElementById('guestStayOverlay').classList.add('open');
+}
+function closeGuestStayOnBg(e){ if(e.target.id==='guestStayOverlay') document.getElementById('guestStayOverlay').classList.remove('open'); }
+function closeGuestStayPinOnBg(e){ if(e.target.id==='guestStayPinOverlay') document.getElementById('guestStayPinOverlay').classList.remove('open'); }
+
+async function submitGuestStay(){
+  const room = document.getElementById('guestStayRoom').value;
+  const name = document.getElementById('guestStayName').value.trim();
+  const arrival = document.getElementById('guestStayArrival').value;
+  const departure = document.getElementById('guestStayDeparture').value;
+  const errBox = document.getElementById('guestStayError');
+
+  if (!name || !arrival || !departure){
+    errBox.textContent = 'Fill in the guest name, arrival, and departure dates.';
+    errBox.classList.add('show');
+    return;
+  }
+  if (departure < arrival){
+    errBox.textContent = 'Departure date is before the arrival date.';
+    errBox.classList.add('show');
+    return;
+  }
+  errBox.classList.remove('show');
+
+  const pin = String(Math.floor(1000 + Math.random() * 9000));
+
+  const { error } = await supabase.from('guest_stays').insert({
+    room_number: room,
+    guest_name: name,
+    arrival_date: arrival,
+    departure_date: departure,
+    pin,
+    created_by: currentMember?.id || null
+  });
+  if (error){
+    console.error(error);
+    errBox.textContent = "Couldn't create this — check your connection and try again.";
+    errBox.classList.add('show');
+    return;
+  }
+
+  document.getElementById('guestStayOverlay').classList.remove('open');
+  document.getElementById('guestStayPinDisplay').textContent = pin;
+  document.getElementById('guestStayPinOverlay').classList.add('open');
 }
 
 function chooseFireAlarm(){
@@ -3331,6 +3440,7 @@ Object.assign(window, {
   cancelRequest, openEditRequest, closeEditRequestOnBg, submitEditRequest,
   chooseFireAlarm, closeFireOnBg, selectFireZone, fireBackToZones, submitFireAlarm,
   chooseAnnounce, closeAnnounceOnBg, submitAnnouncement, removeAnnouncement,
+  chooseGuestStay, closeGuestStayOnBg, closeGuestStayPinOnBg, submitGuestStay,
   selectWhatIdx, selectReqCategoryIdx, selectReqDeptIdx, selectEndDeptIdx, selectReportDeptIdx,
   handleVerifyPhotoSelected, handleReqFile, handleEndFile,
   toggleCheckItem, submitChecklist, selectSummary, handleVerifyAttach, proceedWithoutProof

@@ -57,6 +57,15 @@
     </div>
   </div>
 
+  <!-- PIN entry -->
+  <div id="viewPin" class="hidden">
+    <h1 data-t="enterPin">Enter your room PIN</h1>
+    <p style="color:var(--muted); font-size:13px; margin-top:-14px;" data-t="pinHint">Ask our staff if you don't have it yet.</p>
+    <input id="pinInput" type="tel" inputmode="numeric" maxlength="6" placeholder="••••" style="width:100%; font-size:28px; text-align:center; letter-spacing:8px; padding:16px; border-radius:14px; border:1px solid var(--line); margin:12px 0;" />
+    <div id="pinError" style="color:var(--red); font-size:13px; text-align:center; min-height:18px;"></div>
+    <button class="primary-btn" onclick="verifyPin()" data-t="enter">Enter</button>
+  </div>
+
   <!-- Main menu -->
   <div id="viewMain" class="hidden">
     <button class="lang-switch" onclick="showView('lang')" style="margin-bottom:16px;" data-t="changeLanguage">Change language</button>
@@ -114,14 +123,15 @@ const SUPABASE_ANON_KEY = 'sb_publishable_s-Xj4wDiOuN6kSyWklAqBg_6n4On3Iv';
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const T = {
-  en: { chooseLanguage:'Choose your language', changeLanguage:'Change language', requestSomething:'Request Something', orderFoodDrinks:'Order Food & Drinks', housekeeping:'Housekeeping', maintenance:'Maintenance', reception:'Reception', luggage:'Luggage Assistance', back:'← Back', confirmTitle:'Request sent!', confirmBody:'Our team has been notified and will assist you shortly.', comingSoonTitle:'Menu coming soon', comingSoonBody:"Please ask our staff for today's menu in the meantime." },
-  fil: { chooseLanguage:'Piliin ang wika', changeLanguage:'Palitan ang wika', requestSomething:'Humiling ng Serbisyo', orderFoodDrinks:'Mag-order ng Pagkain at Inumin', housekeeping:'Housekeeping', maintenance:'Maintenance', reception:'Reception', luggage:'Tulong sa Bagahe', back:'← Bumalik', confirmTitle:'Naipadala na ang iyong hiling!', confirmBody:'Naabisuhan na ang aming team at sila ay tutulong sa iyo sa lalong madaling panahon.', comingSoonTitle:'Malapit nang available ang menu', comingSoonBody:'Pakitanong na lang sa aming staff ang menu ngayong araw.' },
-  ko: { chooseLanguage:'언어를 선택하세요', changeLanguage:'언어 변경', requestSomething:'서비스 요청', orderFoodDrinks:'음식 및 음료 주문', housekeeping:'하우스키핑', maintenance:'유지보수', reception:'리셉션', luggage:'짐 도움 요청', back:'← 뒤로', confirmTitle:'요청이 전송되었습니다!', confirmBody:'저희 팀에게 알림이 전달되었으며 곧 도와드리겠습니다.', comingSoonTitle:'메뉴 준비 중', comingSoonBody:'오늘의 메뉴는 저희 직원에게 문의해 주세요.' },
-  ja: { chooseLanguage:'言語を選択してください', changeLanguage:'言語を変更', requestSomething:'サービスをリクエスト', orderFoodDrinks:'フード＆ドリンクを注文', housekeeping:'ハウスキーピング', maintenance:'メンテナンス', reception:'レセプション', luggage:'荷物のお手伝い', back:'← 戻る', confirmTitle:'リクエストを送信しました！', confirmBody:'スタッフに通知されました。まもなく対応いたします。', comingSoonTitle:'メニュー準備中', comingSoonBody:'本日のメニューはスタッフにお尋ねください。' },
-  zh: { chooseLanguage:'请选择语言', changeLanguage:'更改语言', requestSomething:'请求服务', orderFoodDrinks:'点餐和饮品', housekeeping:'客房服务', maintenance:'维修服务', reception:'前台', luggage:'行李协助', back:'← 返回', confirmTitle:'请求已发送！', confirmBody:'我们的团队已收到通知，将尽快为您提供帮助。', comingSoonTitle:'菜单即将上线', comingSoonBody:'请向我们的工作人员询问今日菜单。' }
+  en: { chooseLanguage:'Choose your language', changeLanguage:'Change language', requestSomething:'Request Something', orderFoodDrinks:'Order Food & Drinks', housekeeping:'Housekeeping', maintenance:'Maintenance', reception:'Reception', luggage:'Luggage Assistance', back:'← Back', confirmTitle:'Request sent!', confirmBody:'Our team has been notified and will assist you shortly.', comingSoonTitle:'Menu coming soon', comingSoonBody:"Please ask our staff for today's menu in the meantime.", enterPin:'Enter your room PIN', pinHint:"Ask our staff if you don't have it yet.", enter:'Enter', pinError:"That PIN wasn't recognized, or your stay may have ended — please check with reception." },
+  fil: { chooseLanguage:'Piliin ang wika', changeLanguage:'Palitan ang wika', requestSomething:'Humiling ng Serbisyo', orderFoodDrinks:'Mag-order ng Pagkain at Inumin', housekeeping:'Housekeeping', maintenance:'Maintenance', reception:'Reception', luggage:'Tulong sa Bagahe', back:'← Bumalik', confirmTitle:'Naipadala na ang iyong hiling!', confirmBody:'Naabisuhan na ang aming team at sila ay tutulong sa iyo sa lalong madaling panahon.', comingSoonTitle:'Malapit nang available ang menu', comingSoonBody:'Pakitanong na lang sa aming staff ang menu ngayong araw.', enterPin:'Ilagay ang PIN ng inyong kwarto', pinHint:'Tanungin ang aming staff kung wala pa kayong PIN.', enter:'Ipasok', pinError:'Hindi nakilala ang PIN na iyon, o maaaring tapos na ang inyong stay — pakitanong sa reception.' },
+  ko: { chooseLanguage:'언어를 선택하세요', changeLanguage:'언어 변경', requestSomething:'서비스 요청', orderFoodDrinks:'음식 및 음료 주문', housekeeping:'하우스키핑', maintenance:'유지보수', reception:'리셉션', luggage:'짐 도움 요청', back:'← 뒤로', confirmTitle:'요청이 전송되었습니다!', confirmBody:'저희 팀에게 알림이 전달되었으며 곧 도와드리겠습니다.', comingSoonTitle:'메뉴 준비 중', comingSoonBody:'오늘의 메뉴는 저희 직원에게 문의해 주세요.', enterPin:'객실 PIN을 입력하세요', pinHint:'PIN이 없으시면 직원에게 문의해 주세요.', enter:'입력', pinError:'PIN을 인식할 수 없거나 숙박 기간이 종료되었을 수 있습니다 — 리셉션에 문의해 주세요.' },
+  ja: { chooseLanguage:'言語を選択してください', changeLanguage:'言語を変更', requestSomething:'サービスをリクエスト', orderFoodDrinks:'フード＆ドリンクを注文', housekeeping:'ハウスキーピング', maintenance:'メンテナンス', reception:'レセプション', luggage:'荷物のお手伝い', back:'← 戻る', confirmTitle:'リクエストを送信しました！', confirmBody:'スタッフに通知されました。まもなく対応いたします。', comingSoonTitle:'メニュー準備中', comingSoonBody:'本日のメニューはスタッフにお尋ねください。', enterPin:'客室のPINを入力してください', pinHint:'PINをお持ちでない場合はスタッフにお尋ねください。', enter:'入力', pinError:'PINが認識されませんでした。ご滞在が終了している可能性もあります — レセプションにお問い合わせください。' },
+  zh: { chooseLanguage:'请选择语言', changeLanguage:'更改语言', requestSomething:'请求服务', orderFoodDrinks:'点餐和饮品', housekeeping:'客房服务', maintenance:'维修服务', reception:'前台', luggage:'行李协助', back:'← 返回', confirmTitle:'请求已发送！', confirmBody:'我们的团队已收到通知，将尽快为您提供帮助。', comingSoonTitle:'菜单即将上线', comingSoonBody:'请向我们的工作人员询问今日菜单。', enterPin:'请输入您的房间PIN码', pinHint:'如果还没有PIN码，请询问我们的工作人员。', enter:'确认', pinError:'该PIN码无法识别，或您的入住可能已结束 — 请咨询前台。' }
 };
 
 let lang = 'en';
+let stayId = sessionStorage.getItem('poGuestStayId') || null;
 const params = new URLSearchParams(window.location.search);
 const room = params.get('room');
 if (room){
@@ -138,6 +148,21 @@ let deptIds = {};
 window.setLang = function(l){
   lang = l;
   applyTranslations();
+  showView(stayId ? 'main' : 'pin');
+};
+
+window.verifyPin = async function(){
+  const pin = document.getElementById('pinInput').value.trim();
+  const errBox = document.getElementById('pinError');
+  errBox.textContent = '';
+  if (!pin || !room){ errBox.textContent = T[lang].pinError; return; }
+  const { data, error } = await supabase.rpc('verify_guest_pin', { p_room: room, p_pin: pin });
+  if (error || !data){
+    errBox.textContent = T[lang].pinError;
+    return;
+  }
+  stayId = data;
+  sessionStorage.setItem('poGuestStayId', stayId);
   showView('main');
 };
 
@@ -149,11 +174,13 @@ function applyTranslations(){
 }
 
 window.showView = function(name){
-  ['lang','main','request','order','confirm','comingSoon'].forEach(v => {
+  ['lang','pin','main','request','order','confirm','comingSoon'].forEach(v => {
     document.getElementById('view' + v.charAt(0).toUpperCase() + v.slice(1)).classList.add('hidden');
   });
   document.getElementById('view' + name.charAt(0).toUpperCase() + name.slice(1)).classList.remove('hidden');
 };
+
+if (stayId) showView('main');
 
 window.showComingSoon = function(){ showView('comingSoon'); };
 
