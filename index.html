@@ -3505,6 +3505,15 @@ if('serviceWorker' in navigator){
   window.addEventListener('load', ()=>{
     navigator.serviceWorker.register('sw.js').catch(()=>{});
   });
+  // When a newly-deployed sw.js takes over, refresh automatically so
+  // everyone gets the latest version without clearing history by hand.
+  let poRefreshing = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (poRefreshing) return;
+    poRefreshing = true;
+    toast('Updating to the latest version…');
+    setTimeout(() => window.location.reload(), 1500);
+  });
 }
 </script>
 </body>

@@ -103,12 +103,23 @@
     <div id="detailFeedback" class="hidden" style="margin-top:20px; padding-top:20px; border-top:1px solid var(--line);">
       <div style="font-weight:700; margin-bottom:10px;" data-t="feedbackPrompt">Are you satisfied with how this was handled?</div>
       <div style="display:flex; gap:12px;">
-        <button class="lang-btn" style="flex:1;" onclick="setFeedback(true)">👍</button>
-        <button class="lang-btn" style="flex:1;" onclick="setFeedback(false)">👎</button>
+        <button type="button" class="lang-btn" id="feedbackYesBtn" style="flex:1; border-width:2px;" onclick="setFeedback(true)">👍</button>
+        <button type="button" class="lang-btn" id="feedbackNoBtn" style="flex:1; border-width:2px;" onclick="setFeedback(false)">👎</button>
       </div>
       <input type="text" id="feedbackNote" data-t-placeholder="feedbackNotePlaceholder" placeholder="Anything to add? (optional)" style="width:100%; padding:12px; border:1px solid var(--line); border-radius:10px; font-size:14px; margin-top:10px;" />
-      <button class="primary-btn" onclick="submitFeedback()" data-t="send">Send</button>
+      <button type="button" class="primary-btn" onclick="submitFeedback()" data-t="send">Send</button>
     </div>
+  </div>
+
+  <!-- Timed request: Wake-up Call / Airport Transfer / Late Check-out -->
+  <div id="viewTimedRequest" class="hidden">
+    <button class="back-btn" onclick="showView('subcat')" data-t="back">← Back</button>
+    <h1 id="timedRequestTitle"></h1>
+    <div class="field" style="margin-top:0;">
+      <label data-t="whenLabel">When?</label>
+      <input type="datetime-local" id="timedRequestInput" style="width:100%; padding:12px; border:1px solid var(--line); border-radius:10px; font-size:15px;" />
+    </div>
+    <button type="button" class="primary-btn" onclick="submitTimedRequest()" data-t="send">Send</button>
   </div>
 
   <!-- Request Something sub-menu -->
@@ -170,11 +181,11 @@ const SUPABASE_ANON_KEY = 'sb_publishable_s-Xj4wDiOuN6kSyWklAqBg_6n4On3Iv';
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const T = {
-  en: { chooseLanguage:'Choose your language', changeLanguage:'Change language', requestSomething:'Request Something', orderFoodDrinks:'Order Food & Drinks', housekeeping:'Housekeeping', maintenance:'Maintenance', reception:'Reception', luggage:'Luggage Assistance', back:'← Back', confirmTitle:'Request sent!', confirmBody:'Our team has been notified and will assist you shortly.', comingSoonTitle:'Menu coming soon', comingSoonBody:"Please ask our staff for today's menu in the meantime.", enterPin:'Enter your room PIN', pinHint:"Ask our staff if you don't have it yet.", enter:'Enter', pinError:"That PIN wasn't recognized, or your stay may have ended — please check with reception.", otherMessage:'Other / Message', typeMessage:'Type your message...', send:'Send', myRequests:'My Requests', myRequestsSub:'Check status, chat with reception', statusPending:'Pending', statusInProgress:'In Progress', statusCompleted:'Completed', feedbackPrompt:'Are you satisfied with how this was handled?', feedbackNotePlaceholder:'Anything to add? (optional)', noRequests:"You haven't sent any requests yet." },
-  fil: { chooseLanguage:'Piliin ang wika', changeLanguage:'Palitan ang wika', requestSomething:'Humiling ng Serbisyo', orderFoodDrinks:'Mag-order ng Pagkain at Inumin', housekeeping:'Housekeeping', maintenance:'Maintenance', reception:'Reception', luggage:'Tulong sa Bagahe', back:'← Bumalik', confirmTitle:'Naipadala na ang iyong hiling!', confirmBody:'Naabisuhan na ang aming team at sila ay tutulong sa iyo sa lalong madaling panahon.', comingSoonTitle:'Malapit nang available ang menu', comingSoonBody:'Pakitanong na lang sa aming staff ang menu ngayong araw.', enterPin:'Ilagay ang PIN ng inyong kwarto', pinHint:'Tanungin ang aming staff kung wala pa kayong PIN.', enter:'Ipasok', pinError:'Hindi nakilala ang PIN na iyon, o maaaring tapos na ang inyong stay — pakitanong sa reception.', otherMessage:'Iba pa / Mensahe', typeMessage:'I-type ang inyong mensahe...', send:'Ipadala', myRequests:'Aking mga Kahilingan', myRequestsSub:'Tingnan ang status, makipag-usap sa reception', statusPending:'Naghihintay', statusInProgress:'Ginagawa Na', statusCompleted:'Tapos Na', feedbackPrompt:'Nasiyahan ba kayo sa paghawak nito?', feedbackNotePlaceholder:'May idadagdag pa? (opsyonal)', noRequests:'Wala pa kayong naipadalang hiling.' },
-  ko: { chooseLanguage:'언어를 선택하세요', changeLanguage:'언어 변경', requestSomething:'서비스 요청', orderFoodDrinks:'음식 및 음료 주문', housekeeping:'하우스키핑', maintenance:'유지보수', reception:'리셉션', luggage:'짐 도움 요청', back:'← 뒤로', confirmTitle:'요청이 전송되었습니다!', confirmBody:'저희 팀에게 알림이 전달되었으며 곧 도와드리겠습니다.', comingSoonTitle:'메뉴 준비 중', comingSoonBody:'오늘의 메뉴는 저희 직원에게 문의해 주세요.', enterPin:'객실 PIN을 입력하세요', pinHint:'PIN이 없으시면 직원에게 문의해 주세요.', enter:'입력', pinError:'PIN을 인식할 수 없거나 숙박 기간이 종료되었을 수 있습니다 — 리셉션에 문의해 주세요.', otherMessage:'기타 / 메시지', typeMessage:'메시지를 입력하세요...', send:'보내기', myRequests:'내 요청', myRequestsSub:'상태 확인, 리셉션과 대화', statusPending:'대기 중', statusInProgress:'진행 중', statusCompleted:'완료됨', feedbackPrompt:'처리 결과에 만족하셨나요?', feedbackNotePlaceholder:'추가하실 내용이 있나요? (선택 사항)', noRequests:'아직 보낸 요청이 없습니다.' },
-  ja: { chooseLanguage:'言語を選択してください', changeLanguage:'言語を変更', requestSomething:'サービスをリクエスト', orderFoodDrinks:'フード＆ドリンクを注文', housekeeping:'ハウスキーピング', maintenance:'メンテナンス', reception:'レセプション', luggage:'荷物のお手伝い', back:'← 戻る', confirmTitle:'リクエストを送信しました！', confirmBody:'スタッフに通知されました。まもなく対応いたします。', comingSoonTitle:'メニュー準備中', comingSoonBody:'本日のメニューはスタッフにお尋ねください。', enterPin:'客室のPINを入力してください', pinHint:'PINをお持ちでない場合はスタッフにお尋ねください。', enter:'入力', pinError:'PINが認識されませんでした。ご滞在が終了している可能性もあります — レセプションにお問い合わせください。', otherMessage:'その他 / メッセージ', typeMessage:'メッセージを入力してください...', send:'送信', myRequests:'マイリクエスト', myRequestsSub:'状況確認、レセプションとチャット', statusPending:'保留中', statusInProgress:'対応中', statusCompleted:'完了', feedbackPrompt:'対応にご満足いただけましたか？', feedbackNotePlaceholder:'その他ご意見があれば（任意）', noRequests:'まだリクエストがありません。' },
-  zh: { chooseLanguage:'请选择语言', changeLanguage:'更改语言', requestSomething:'请求服务', orderFoodDrinks:'点餐和饮品', housekeeping:'客房服务', maintenance:'维修服务', reception:'前台', luggage:'行李协助', back:'← 返回', confirmTitle:'请求已发送！', confirmBody:'我们的团队已收到通知，将尽快为您提供帮助。', comingSoonTitle:'菜单即将上线', comingSoonBody:'请向我们的工作人员询问今日菜单。', enterPin:'请输入您的房间PIN码', pinHint:'如果还没有PIN码，请询问我们的工作人员。', enter:'确认', pinError:'该PIN码无法识别，或您的入住可能已结束 — 请咨询前台。', otherMessage:'其他 / 留言', typeMessage:'请输入您的留言...', send:'发送', myRequests:'我的请求', myRequestsSub:'查看状态，与前台聊天', statusPending:'待处理', statusInProgress:'处理中', statusCompleted:'已完成', feedbackPrompt:'您对处理结果满意吗？', feedbackNotePlaceholder:'还有什么想说的吗？（可选）', noRequests:'您还没有发送任何请求。' }
+  en: { chooseLanguage:'Choose your language', changeLanguage:'Change language', requestSomething:'Request Something', orderFoodDrinks:'Order Food & Drinks', housekeeping:'Housekeeping', maintenance:'Maintenance', reception:'Reception', luggage:'Luggage Assistance', back:'← Back', confirmTitle:'Request sent!', confirmBody:'Our team has been notified and will assist you shortly.', comingSoonTitle:'Menu coming soon', comingSoonBody:"Please ask our staff for today's menu in the meantime.", enterPin:'Enter your room PIN', pinHint:"Ask our staff if you don't have it yet.", enter:'Enter', pinError:"That PIN wasn't recognized, or your stay may have ended — please check with reception.", otherMessage:'Other / Message', typeMessage:'Type your message...', send:'Send', myRequests:'My Requests', myRequestsSub:'Check status, chat with reception', statusPending:'Pending', statusInProgress:'In Progress', statusCompleted:'Completed', feedbackPrompt:'Are you satisfied with how this was handled?', feedbackNotePlaceholder:'Anything to add? (optional)', noRequests:"You haven't sent any requests yet.", whenLabel:'When?' },
+  fil: { chooseLanguage:'Piliin ang wika', changeLanguage:'Palitan ang wika', requestSomething:'Humiling ng Serbisyo', orderFoodDrinks:'Mag-order ng Pagkain at Inumin', housekeeping:'Housekeeping', maintenance:'Maintenance', reception:'Reception', luggage:'Tulong sa Bagahe', back:'← Bumalik', confirmTitle:'Naipadala na ang iyong hiling!', confirmBody:'Naabisuhan na ang aming team at sila ay tutulong sa iyo sa lalong madaling panahon.', comingSoonTitle:'Malapit nang available ang menu', comingSoonBody:'Pakitanong na lang sa aming staff ang menu ngayong araw.', enterPin:'Ilagay ang PIN ng inyong kwarto', pinHint:'Tanungin ang aming staff kung wala pa kayong PIN.', enter:'Ipasok', pinError:'Hindi nakilala ang PIN na iyon, o maaaring tapos na ang inyong stay — pakitanong sa reception.', otherMessage:'Iba pa / Mensahe', typeMessage:'I-type ang inyong mensahe...', send:'Ipadala', myRequests:'Aking mga Kahilingan', myRequestsSub:'Tingnan ang status, makipag-usap sa reception', statusPending:'Naghihintay', statusInProgress:'Ginagawa Na', statusCompleted:'Tapos Na', feedbackPrompt:'Nasiyahan ba kayo sa paghawak nito?', feedbackNotePlaceholder:'May idadagdag pa? (opsyonal)', noRequests:'Wala pa kayong naipadalang hiling.', whenLabel:'Kailan?' },
+  ko: { chooseLanguage:'언어를 선택하세요', changeLanguage:'언어 변경', requestSomething:'서비스 요청', orderFoodDrinks:'음식 및 음료 주문', housekeeping:'하우스키핑', maintenance:'유지보수', reception:'리셉션', luggage:'짐 도움 요청', back:'← 뒤로', confirmTitle:'요청이 전송되었습니다!', confirmBody:'저희 팀에게 알림이 전달되었으며 곧 도와드리겠습니다.', comingSoonTitle:'메뉴 준비 중', comingSoonBody:'오늘의 메뉴는 저희 직원에게 문의해 주세요.', enterPin:'객실 PIN을 입력하세요', pinHint:'PIN이 없으시면 직원에게 문의해 주세요.', enter:'입력', pinError:'PIN을 인식할 수 없거나 숙박 기간이 종료되었을 수 있습니다 — 리셉션에 문의해 주세요.', otherMessage:'기타 / 메시지', typeMessage:'메시지를 입력하세요...', send:'보내기', myRequests:'내 요청', myRequestsSub:'상태 확인, 리셉션과 대화', statusPending:'대기 중', statusInProgress:'진행 중', statusCompleted:'완료됨', feedbackPrompt:'처리 결과에 만족하셨나요?', feedbackNotePlaceholder:'추가하실 내용이 있나요? (선택 사항)', noRequests:'아직 보낸 요청이 없습니다.', whenLabel:'언제?' },
+  ja: { chooseLanguage:'言語を選択してください', changeLanguage:'言語を変更', requestSomething:'サービスをリクエスト', orderFoodDrinks:'フード＆ドリンクを注文', housekeeping:'ハウスキーピング', maintenance:'メンテナンス', reception:'レセプション', luggage:'荷物のお手伝い', back:'← 戻る', confirmTitle:'リクエストを送信しました！', confirmBody:'スタッフに通知されました。まもなく対応いたします。', comingSoonTitle:'メニュー準備中', comingSoonBody:'本日のメニューはスタッフにお尋ねください。', enterPin:'客室のPINを入力してください', pinHint:'PINをお持ちでない場合はスタッフにお尋ねください。', enter:'入力', pinError:'PINが認識されませんでした。ご滞在が終了している可能性もあります — レセプションにお問い合わせください。', otherMessage:'その他 / メッセージ', typeMessage:'メッセージを入力してください...', send:'送信', myRequests:'マイリクエスト', myRequestsSub:'状況確認、レセプションとチャット', statusPending:'保留中', statusInProgress:'対応中', statusCompleted:'完了', feedbackPrompt:'対応にご満足いただけましたか？', feedbackNotePlaceholder:'その他ご意見があれば（任意）', noRequests:'まだリクエストがありません。', whenLabel:'いつ？' },
+  zh: { chooseLanguage:'请选择语言', changeLanguage:'更改语言', requestSomething:'请求服务', orderFoodDrinks:'点餐和饮品', housekeeping:'客房服务', maintenance:'维修服务', reception:'前台', luggage:'行李协助', back:'← 返回', confirmTitle:'请求已发送！', confirmBody:'我们的团队已收到通知，将尽快为您提供帮助。', comingSoonTitle:'菜单即将上线', comingSoonBody:'请向我们的工作人员询问今日菜单。', enterPin:'请输入您的房间PIN码', pinHint:'如果还没有PIN码，请询问我们的工作人员。', enter:'确认', pinError:'该PIN码无法识别，或您的入住可能已结束 — 请咨询前台。', otherMessage:'其他 / 留言', typeMessage:'请输入您的留言...', send:'发送', myRequests:'我的请求', myRequestsSub:'查看状态，与前台聊天', statusPending:'待处理', statusInProgress:'处理中', statusCompleted:'已完成', feedbackPrompt:'您对处理结果满意吗？', feedbackNotePlaceholder:'还有什么想说的吗？（可选）', noRequests:'您还没有发送任何请求。', whenLabel:'什么时候？' }
 };
 
 let lang = 'en';
@@ -233,7 +244,7 @@ function applyTranslations(){
 }
 
 window.showView = function(name){
-  ['lang','pin','main','request','subcat','otherMessage','order','confirm','comingSoon','myRequests','requestDetail'].forEach(v => {
+  ['lang','pin','main','request','subcat','otherMessage','order','confirm','comingSoon','myRequests','requestDetail','timedRequest'].forEach(v => {
     document.getElementById('view' + v.charAt(0).toUpperCase() + v.slice(1)).classList.add('hidden');
   });
   document.getElementById('view' + name.charAt(0).toUpperCase() + name.slice(1)).classList.remove('hidden');
@@ -244,6 +255,7 @@ if (stayId) showView('main');
 window.showComingSoon = function(){ showView('comingSoon'); };
 
 let currentSubcatDept = null;
+const TIMED_CATEGORIES = ['Wake-up Call', 'Airport Transfer', 'Late Check-out Request'];
 
 window.openSubcats = function(deptCode, titleKey){
   currentSubcatDept = deptCode;
@@ -252,7 +264,11 @@ window.openSubcats = function(deptCode, titleKey){
   const list = document.getElementById('subcatList');
   list.innerHTML = items.map(c => {
     const localLabel = (c.translations && c.translations[lang]) ? c.translations[lang] : c.label;
-    return `<div class="tile" onclick="submitGuestRequest('${deptCode}', '${c.label.replace(/'/g,"\\'")}')"><span class="e">${c.emoji}</span><div class="t">${localLabel}</div></div>`;
+    const safeLabel = c.label.replace(/'/g,"\\'");
+    const action = TIMED_CATEGORIES.includes(c.label)
+      ? `openTimedRequest('${deptCode}','${safeLabel}','${localLabel.replace(/'/g,"\\'")}')`
+      : `submitGuestRequest('${deptCode}','${safeLabel}')`;
+    return `<div class="tile" onclick="${action}"><span class="e">${c.emoji}</span><div class="t">${localLabel}</div></div>`;
   }).join('');
   if (deptCode === 'FO'){
     list.innerHTML += `<div class="tile" onclick="showView('otherMessage')"><span class="e">💬</span><div class="t" data-t="otherMessage">Other / Message</div></div>`;
@@ -265,13 +281,30 @@ function guestDisplayLabel(){
   return room ? (guestName ? `Room ${room} — ${guestName}` : `Room ${room}`) : (guestName || 'Guest Request');
 }
 
-window.submitGuestRequest = async function(deptCode, label){
+let pendingTimedRequest = null;
+
+window.openTimedRequest = function(deptCode, label, localLabel){
+  pendingTimedRequest = { deptCode, label };
+  document.getElementById('timedRequestTitle').textContent = localLabel;
+  document.getElementById('timedRequestInput').value = '';
+  showView('timedRequest');
+};
+
+window.submitTimedRequest = async function(){
+  const val = document.getElementById('timedRequestInput').value;
+  if (!val || !pendingTimedRequest) return;
+  const when = new Date(val).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' });
+  await submitGuestRequest(pendingTimedRequest.deptCode, pendingTimedRequest.label, `Requested time: ${when}`);
+};
+
+window.submitGuestRequest = async function(deptCode, label, extraDetail){
   const departmentId = deptIds[deptCode];
   if (!departmentId){ alert('Something went wrong — please ask our staff directly.'); return; }
-  const title = `Guest Request: ${label} — ${guestDisplayLabel()}`;
+  const title = extraDetail ? `Guest Request: ${label} (${extraDetail}) — ${guestDisplayLabel()}` : `Guest Request: ${label} — ${guestDisplayLabel()}`;
   const { error } = await supabase.from('cases').insert({
     title,
     detail_type: label,
+    description: extraDetail || null,
     is_request: true,
     department_id: departmentId,
     asset_label: guestDisplayLabel(),
@@ -360,6 +393,12 @@ window.openRequestDetail = async function(caseId){
   const feedbackBox = document.getElementById('detailFeedback');
   if (r.verified_at && r.guest_satisfied === null){
     feedbackBox.classList.remove('hidden');
+    selectedFeedback = null;
+    document.getElementById('feedbackYesBtn').style.background = '';
+    document.getElementById('feedbackYesBtn').style.borderColor = '';
+    document.getElementById('feedbackNoBtn').style.background = '';
+    document.getElementById('feedbackNoBtn').style.borderColor = '';
+    document.getElementById('feedbackNote').value = '';
   } else {
     feedbackBox.classList.add('hidden');
   }
@@ -393,6 +432,12 @@ window.sendDetailReply = async function(){
 let selectedFeedback = null;
 window.setFeedback = function(satisfied){
   selectedFeedback = satisfied;
+  const yesBtn = document.getElementById('feedbackYesBtn');
+  const noBtn = document.getElementById('feedbackNoBtn');
+  yesBtn.style.background = satisfied ? 'var(--green-tint)' : '';
+  yesBtn.style.borderColor = satisfied ? 'var(--green)' : 'var(--line)';
+  noBtn.style.background = satisfied === false ? 'var(--red-tint)' : '';
+  noBtn.style.borderColor = satisfied === false ? 'var(--red)' : 'var(--line)';
 };
 window.submitFeedback = async function(){
   if (selectedFeedback === null || !currentDetailCase) return;
