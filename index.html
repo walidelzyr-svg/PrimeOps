@@ -725,6 +725,19 @@
     </div>
   </div>
 
+  <!-- Guest conversation thread -->
+  <div class="overlay" id="guestConvoOverlay" onclick="closeGuestConvoOnBg(event)">
+    <div class="sheet">
+      <div class="sheet-handle"></div>
+      <div class="sheet-title">Guest Conversation</div>
+      <div id="guestConvoThread" style="max-height:340px; overflow-y:auto; margin:14px 0;"></div>
+      <div class="field" style="margin-top:0;">
+        <input type="text" id="guestConvoInput" placeholder="Reply to guest..." />
+      </div>
+      <button class="btn primary" style="width:100%;" onclick="sendGuestConvoReply()">Send Reply</button>
+    </div>
+  </div>
+
   <!-- Post Announcement flow (GM only) -->
   <div class="overlay" id="announceOverlay" onclick="closeAnnounceOnBg(event)">
     <div class="sheet">
@@ -2161,6 +2174,7 @@ function cardHtml(c){
       ${descLine(c)}
       ${timesLine(c)}
       <button class="btn ${btnClass(c.status)}" onclick="advance('${c.id}')">${actionLabel(c.status)}</button>
+      ${c.detail_type === 'Guest Message' ? `<button class="btn ghost" style="margin-top:8px;" onclick="openGuestConvo('${c.id}')">💬 View Conversation</button>` : ''}
     </div>
   `;
 }
@@ -2485,6 +2499,44 @@ async function submitGuestStay(){
   document.getElementById('guestStayOverlay').classList.remove('open');
   document.getElementById('guestStayPinDisplay').textContent = pin;
   document.getElementById('guestStayPinOverlay').classList.add('open');
+}
+
+/* ---------------- Guest conversation (reply to Other/Message) ---------------- */
+let currentGuestConvoCaseId = null;
+
+async function renderGuestConvoThread(){
+  const { data } = await supabase.from('case_messages').select('sender,message,created_at').eq('case_id', currentGuestConvoCaseId).order('created_at');
+  const box = document.getElementById('guestConvoThread');
+  box.innerHTML = (data || []).map(m => `
+    <div style="margin:8px 0; padding:10px 14px; border-radius:12px; max-width:80%; ${m.sender === 'staff' ? 'margin-left:auto; background:var(--blue-tint);' : 'background:var(--paper); border:1px solid var(--line);'}">
+      <div style="font-size:11px; color:var(--muted); margin-bottom:2px;">${m.sender === 'staff' ? 'Staff' : 'Guest'}</div>
+      <div style="font-size:14px;">${(m.message || '').replace(/</g,'&lt;')}</div>
+    </div>
+  `).join('');
+  box.scrollTop = box.scrollHeight;
+}
+
+function openGuestConvo(caseId){
+  currentGuestConvoCaseId = caseId;
+  document.getElementById('guestConvoInput').value = '';
+  renderGuestConvoThread();
+  document.getElementById('guestConvoOverlay').classList.add('open');
+}
+function closeGuestConvoOnBg(e){ if(e.target.id==='guestConvoOverlay') document.getElementById('guestConvoOverlay').classList.remove('open'); }
+
+async function sendGuestConvoReply(){
+  const input = document.getElementById('guestConvoInput');
+  const val = input.value.trim();
+  if (!val || !currentGuestConvoCaseId) return;
+  const { error } = await supabase.from('case_messages').insert({
+    case_id: currentGuestConvoCaseId,
+    sender: 'staff',
+    message: val,
+    created_by: currentMember?.id || null
+  });
+  if (error){ console.error(error); toast("Couldn't send — check your connection"); return; }
+  input.value = '';
+  await renderGuestConvoThread();
 }
 
 function chooseFireAlarm(){
@@ -3441,6 +3493,7 @@ Object.assign(window, {
   chooseFireAlarm, closeFireOnBg, selectFireZone, fireBackToZones, submitFireAlarm,
   chooseAnnounce, closeAnnounceOnBg, submitAnnouncement, removeAnnouncement,
   chooseGuestStay, closeGuestStayOnBg, closeGuestStayPinOnBg, submitGuestStay,
+  openGuestConvo, closeGuestConvoOnBg, sendGuestConvoReply,
   selectWhatIdx, selectReqCategoryIdx, selectReqDeptIdx, selectEndDeptIdx, selectReportDeptIdx,
   handleVerifyPhotoSelected, handleReqFile, handleEndFile,
   toggleCheckItem, submitChecklist, selectSummary, handleVerifyAttach, proceedWithoutProof

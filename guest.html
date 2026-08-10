@@ -77,6 +77,38 @@
       <span class="e">🍽️</span>
       <div><div class="t" data-t="orderFoodDrinks">Order Food &amp; Drinks</div><div class="s">IMO Bar, Coppa Café</div></div>
     </div>
+    <div class="tile" onclick="openMyRequests()">
+      <span class="e">📋</span>
+      <div><div class="t" data-t="myRequests">My Requests</div><div class="s" data-t="myRequestsSub">Check status, chat with reception</div></div>
+    </div>
+  </div>
+
+  <!-- My Requests list -->
+  <div id="viewMyRequests" class="hidden">
+    <button class="back-btn" onclick="showView('main')" data-t="back">← Back</button>
+    <h1 data-t="myRequests">My Requests</h1>
+    <div id="myRequestsList"></div>
+  </div>
+
+  <!-- Request detail: status, thread, satisfaction -->
+  <div id="viewRequestDetail" class="hidden">
+    <button class="back-btn" onclick="showView('myRequests')" data-t="back">← Back</button>
+    <h1 id="detailTitle"></h1>
+    <div id="detailStatus" style="font-weight:700; margin-bottom:16px;"></div>
+    <div id="detailThread"></div>
+    <div id="detailReplyBox" class="hidden" style="margin-top:12px;">
+      <input type="text" id="detailReplyInput" data-t-placeholder="typeMessage" placeholder="Type your message..." style="width:100%; padding:12px; border:1px solid var(--line); border-radius:10px; font-size:15px;" />
+      <button class="primary-btn" onclick="sendDetailReply()" data-t="send">Send</button>
+    </div>
+    <div id="detailFeedback" class="hidden" style="margin-top:20px; padding-top:20px; border-top:1px solid var(--line);">
+      <div style="font-weight:700; margin-bottom:10px;" data-t="feedbackPrompt">Are you satisfied with how this was handled?</div>
+      <div style="display:flex; gap:12px;">
+        <button class="lang-btn" style="flex:1;" onclick="setFeedback(true)">👍</button>
+        <button class="lang-btn" style="flex:1;" onclick="setFeedback(false)">👎</button>
+      </div>
+      <input type="text" id="feedbackNote" data-t-placeholder="feedbackNotePlaceholder" placeholder="Anything to add? (optional)" style="width:100%; padding:12px; border:1px solid var(--line); border-radius:10px; font-size:14px; margin-top:10px;" />
+      <button class="primary-btn" onclick="submitFeedback()" data-t="send">Send</button>
+    </div>
   </div>
 
   <!-- Request Something sub-menu -->
@@ -138,16 +170,16 @@ const SUPABASE_ANON_KEY = 'sb_publishable_s-Xj4wDiOuN6kSyWklAqBg_6n4On3Iv';
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const T = {
-  en: { chooseLanguage:'Choose your language', changeLanguage:'Change language', requestSomething:'Request Something', orderFoodDrinks:'Order Food & Drinks', housekeeping:'Housekeeping', maintenance:'Maintenance', reception:'Reception', luggage:'Luggage Assistance', back:'← Back', confirmTitle:'Request sent!', confirmBody:'Our team has been notified and will assist you shortly.', comingSoonTitle:'Menu coming soon', comingSoonBody:"Please ask our staff for today's menu in the meantime.", enterPin:'Enter your room PIN', pinHint:"Ask our staff if you don't have it yet.", enter:'Enter', pinError:"That PIN wasn't recognized, or your stay may have ended — please check with reception.", otherMessage:'Other / Message', typeMessage:'Type your message...', send:'Send' },
-  fil: { chooseLanguage:'Piliin ang wika', changeLanguage:'Palitan ang wika', requestSomething:'Humiling ng Serbisyo', orderFoodDrinks:'Mag-order ng Pagkain at Inumin', housekeeping:'Housekeeping', maintenance:'Maintenance', reception:'Reception', luggage:'Tulong sa Bagahe', back:'← Bumalik', confirmTitle:'Naipadala na ang iyong hiling!', confirmBody:'Naabisuhan na ang aming team at sila ay tutulong sa iyo sa lalong madaling panahon.', comingSoonTitle:'Malapit nang available ang menu', comingSoonBody:'Pakitanong na lang sa aming staff ang menu ngayong araw.', enterPin:'Ilagay ang PIN ng inyong kwarto', pinHint:'Tanungin ang aming staff kung wala pa kayong PIN.', enter:'Ipasok', pinError:'Hindi nakilala ang PIN na iyon, o maaaring tapos na ang inyong stay — pakitanong sa reception.', otherMessage:'Iba pa / Mensahe', typeMessage:'I-type ang inyong mensahe...', send:'Ipadala' },
-  ko: { chooseLanguage:'언어를 선택하세요', changeLanguage:'언어 변경', requestSomething:'서비스 요청', orderFoodDrinks:'음식 및 음료 주문', housekeeping:'하우스키핑', maintenance:'유지보수', reception:'리셉션', luggage:'짐 도움 요청', back:'← 뒤로', confirmTitle:'요청이 전송되었습니다!', confirmBody:'저희 팀에게 알림이 전달되었으며 곧 도와드리겠습니다.', comingSoonTitle:'메뉴 준비 중', comingSoonBody:'오늘의 메뉴는 저희 직원에게 문의해 주세요.', enterPin:'객실 PIN을 입력하세요', pinHint:'PIN이 없으시면 직원에게 문의해 주세요.', enter:'입력', pinError:'PIN을 인식할 수 없거나 숙박 기간이 종료되었을 수 있습니다 — 리셉션에 문의해 주세요.', otherMessage:'기타 / 메시지', typeMessage:'메시지를 입력하세요...', send:'보내기' },
-  ja: { chooseLanguage:'言語を選択してください', changeLanguage:'言語を変更', requestSomething:'サービスをリクエスト', orderFoodDrinks:'フード＆ドリンクを注文', housekeeping:'ハウスキーピング', maintenance:'メンテナンス', reception:'レセプション', luggage:'荷物のお手伝い', back:'← 戻る', confirmTitle:'リクエストを送信しました！', confirmBody:'スタッフに通知されました。まもなく対応いたします。', comingSoonTitle:'メニュー準備中', comingSoonBody:'本日のメニューはスタッフにお尋ねください。', enterPin:'客室のPINを入力してください', pinHint:'PINをお持ちでない場合はスタッフにお尋ねください。', enter:'入力', pinError:'PINが認識されませんでした。ご滞在が終了している可能性もあります — レセプションにお問い合わせください。', otherMessage:'その他 / メッセージ', typeMessage:'メッセージを入力してください...', send:'送信' },
-  zh: { chooseLanguage:'请选择语言', changeLanguage:'更改语言', requestSomething:'请求服务', orderFoodDrinks:'点餐和饮品', housekeeping:'客房服务', maintenance:'维修服务', reception:'前台', luggage:'行李协助', back:'← 返回', confirmTitle:'请求已发送！', confirmBody:'我们的团队已收到通知，将尽快为您提供帮助。', comingSoonTitle:'菜单即将上线', comingSoonBody:'请向我们的工作人员询问今日菜单。', enterPin:'请输入您的房间PIN码', pinHint:'如果还没有PIN码，请询问我们的工作人员。', enter:'确认', pinError:'该PIN码无法识别，或您的入住可能已结束 — 请咨询前台。', otherMessage:'其他 / 留言', typeMessage:'请输入您的留言...', send:'发送' }
+  en: { chooseLanguage:'Choose your language', changeLanguage:'Change language', requestSomething:'Request Something', orderFoodDrinks:'Order Food & Drinks', housekeeping:'Housekeeping', maintenance:'Maintenance', reception:'Reception', luggage:'Luggage Assistance', back:'← Back', confirmTitle:'Request sent!', confirmBody:'Our team has been notified and will assist you shortly.', comingSoonTitle:'Menu coming soon', comingSoonBody:"Please ask our staff for today's menu in the meantime.", enterPin:'Enter your room PIN', pinHint:"Ask our staff if you don't have it yet.", enter:'Enter', pinError:"That PIN wasn't recognized, or your stay may have ended — please check with reception.", otherMessage:'Other / Message', typeMessage:'Type your message...', send:'Send', myRequests:'My Requests', myRequestsSub:'Check status, chat with reception', statusPending:'Pending', statusInProgress:'In Progress', statusCompleted:'Completed', feedbackPrompt:'Are you satisfied with how this was handled?', feedbackNotePlaceholder:'Anything to add? (optional)', noRequests:"You haven't sent any requests yet." },
+  fil: { chooseLanguage:'Piliin ang wika', changeLanguage:'Palitan ang wika', requestSomething:'Humiling ng Serbisyo', orderFoodDrinks:'Mag-order ng Pagkain at Inumin', housekeeping:'Housekeeping', maintenance:'Maintenance', reception:'Reception', luggage:'Tulong sa Bagahe', back:'← Bumalik', confirmTitle:'Naipadala na ang iyong hiling!', confirmBody:'Naabisuhan na ang aming team at sila ay tutulong sa iyo sa lalong madaling panahon.', comingSoonTitle:'Malapit nang available ang menu', comingSoonBody:'Pakitanong na lang sa aming staff ang menu ngayong araw.', enterPin:'Ilagay ang PIN ng inyong kwarto', pinHint:'Tanungin ang aming staff kung wala pa kayong PIN.', enter:'Ipasok', pinError:'Hindi nakilala ang PIN na iyon, o maaaring tapos na ang inyong stay — pakitanong sa reception.', otherMessage:'Iba pa / Mensahe', typeMessage:'I-type ang inyong mensahe...', send:'Ipadala', myRequests:'Aking mga Kahilingan', myRequestsSub:'Tingnan ang status, makipag-usap sa reception', statusPending:'Naghihintay', statusInProgress:'Ginagawa Na', statusCompleted:'Tapos Na', feedbackPrompt:'Nasiyahan ba kayo sa paghawak nito?', feedbackNotePlaceholder:'May idadagdag pa? (opsyonal)', noRequests:'Wala pa kayong naipadalang hiling.' },
+  ko: { chooseLanguage:'언어를 선택하세요', changeLanguage:'언어 변경', requestSomething:'서비스 요청', orderFoodDrinks:'음식 및 음료 주문', housekeeping:'하우스키핑', maintenance:'유지보수', reception:'리셉션', luggage:'짐 도움 요청', back:'← 뒤로', confirmTitle:'요청이 전송되었습니다!', confirmBody:'저희 팀에게 알림이 전달되었으며 곧 도와드리겠습니다.', comingSoonTitle:'메뉴 준비 중', comingSoonBody:'오늘의 메뉴는 저희 직원에게 문의해 주세요.', enterPin:'객실 PIN을 입력하세요', pinHint:'PIN이 없으시면 직원에게 문의해 주세요.', enter:'입력', pinError:'PIN을 인식할 수 없거나 숙박 기간이 종료되었을 수 있습니다 — 리셉션에 문의해 주세요.', otherMessage:'기타 / 메시지', typeMessage:'메시지를 입력하세요...', send:'보내기', myRequests:'내 요청', myRequestsSub:'상태 확인, 리셉션과 대화', statusPending:'대기 중', statusInProgress:'진행 중', statusCompleted:'완료됨', feedbackPrompt:'처리 결과에 만족하셨나요?', feedbackNotePlaceholder:'추가하실 내용이 있나요? (선택 사항)', noRequests:'아직 보낸 요청이 없습니다.' },
+  ja: { chooseLanguage:'言語を選択してください', changeLanguage:'言語を変更', requestSomething:'サービスをリクエスト', orderFoodDrinks:'フード＆ドリンクを注文', housekeeping:'ハウスキーピング', maintenance:'メンテナンス', reception:'レセプション', luggage:'荷物のお手伝い', back:'← 戻る', confirmTitle:'リクエストを送信しました！', confirmBody:'スタッフに通知されました。まもなく対応いたします。', comingSoonTitle:'メニュー準備中', comingSoonBody:'本日のメニューはスタッフにお尋ねください。', enterPin:'客室のPINを入力してください', pinHint:'PINをお持ちでない場合はスタッフにお尋ねください。', enter:'入力', pinError:'PINが認識されませんでした。ご滞在が終了している可能性もあります — レセプションにお問い合わせください。', otherMessage:'その他 / メッセージ', typeMessage:'メッセージを入力してください...', send:'送信', myRequests:'マイリクエスト', myRequestsSub:'状況確認、レセプションとチャット', statusPending:'保留中', statusInProgress:'対応中', statusCompleted:'完了', feedbackPrompt:'対応にご満足いただけましたか？', feedbackNotePlaceholder:'その他ご意見があれば（任意）', noRequests:'まだリクエストがありません。' },
+  zh: { chooseLanguage:'请选择语言', changeLanguage:'更改语言', requestSomething:'请求服务', orderFoodDrinks:'点餐和饮品', housekeeping:'客房服务', maintenance:'维修服务', reception:'前台', luggage:'行李协助', back:'← 返回', confirmTitle:'请求已发送！', confirmBody:'我们的团队已收到通知，将尽快为您提供帮助。', comingSoonTitle:'菜单即将上线', comingSoonBody:'请向我们的工作人员询问今日菜单。', enterPin:'请输入您的房间PIN码', pinHint:'如果还没有PIN码，请询问我们的工作人员。', enter:'确认', pinError:'该PIN码无法识别，或您的入住可能已结束 — 请咨询前台。', otherMessage:'其他 / 留言', typeMessage:'请输入您的留言...', send:'发送', myRequests:'我的请求', myRequestsSub:'查看状态，与前台聊天', statusPending:'待处理', statusInProgress:'处理中', statusCompleted:'已完成', feedbackPrompt:'您对处理结果满意吗？', feedbackNotePlaceholder:'还有什么想说的吗？（可选）', noRequests:'您还没有发送任何请求。' }
 };
 
 let lang = 'en';
-let stayId = sessionStorage.getItem('poGuestStayId') || null;
-let guestName = sessionStorage.getItem('poGuestName') || null;
+let stayId = localStorage.getItem('poGuestStayId') || null;
+let guestName = localStorage.getItem('poGuestName') || null;
 const params = new URLSearchParams(window.location.search);
 const room = params.get('room');
 if (room){
@@ -184,8 +216,8 @@ window.verifyPin = async function(){
   }
   stayId = data.id;
   guestName = data.guest_name || null;
-  sessionStorage.setItem('poGuestStayId', stayId);
-  if (guestName) sessionStorage.setItem('poGuestName', guestName);
+  localStorage.setItem('poGuestStayId', stayId);
+  if (guestName) localStorage.setItem('poGuestName', guestName);
   showView('main');
 };
 
@@ -201,7 +233,7 @@ function applyTranslations(){
 }
 
 window.showView = function(name){
-  ['lang','pin','main','request','subcat','otherMessage','order','confirm','comingSoon'].forEach(v => {
+  ['lang','pin','main','request','subcat','otherMessage','order','confirm','comingSoon','myRequests','requestDetail'].forEach(v => {
     document.getElementById('view' + v.charAt(0).toUpperCase() + v.slice(1)).classList.add('hidden');
   });
   document.getElementById('view' + name.charAt(0).toUpperCase() + name.slice(1)).classList.remove('hidden');
@@ -244,7 +276,8 @@ window.submitGuestRequest = async function(deptCode, label){
     department_id: departmentId,
     asset_label: guestDisplayLabel(),
     priority: 'medium',
-    status: 'waiting'
+    status: 'waiting',
+    guest_stay_id: stayId
   });
   if (error){
     console.error(error);
@@ -268,7 +301,8 @@ window.submitOtherMessage = async function(){
     department_id: departmentId,
     asset_label: guestDisplayLabel(),
     priority: 'medium',
-    status: 'waiting'
+    status: 'waiting',
+    guest_stay_id: stayId
   });
   if (error){
     console.error(error);
@@ -278,6 +312,111 @@ window.submitOtherMessage = async function(){
   document.getElementById('otherMessageInput').value = '';
   showView('confirm');
 };
+
+/* ---------------- My Requests / status / thread / feedback ---------------- */
+function statusLabel(r){
+  if (r.verified_at) return T[lang].statusCompleted;
+  if (r.accepted_at) return T[lang].statusInProgress;
+  return T[lang].statusPending;
+}
+
+window.openMyRequests = async function(){
+  showView('myRequests');
+  await renderMyRequests();
+};
+
+async function renderMyRequests(){
+  const list = document.getElementById('myRequestsList');
+  if (!stayId){ list.innerHTML = ''; return; }
+  const { data } = await supabase.rpc('get_guest_cases', { p_stay_id: stayId });
+  const rows = data || [];
+  if (!rows.length){
+    list.innerHTML = `<p style="color:var(--muted); font-size:14px;">${T[lang].noRequests}</p>`;
+    return;
+  }
+  list.innerHTML = rows.map(r => `
+    <div class="tile" onclick="openRequestDetail('${r.id}')">
+      <span class="e">${r.verified_at ? '✅' : (r.accepted_at ? '🔧' : '🕐')}</span>
+      <div><div class="t">${r.detail_type || r.title}</div><div class="s">${statusLabel(r)}</div></div>
+    </div>
+  `).join('');
+}
+
+let currentDetailCase = null;
+
+window.openRequestDetail = async function(caseId){
+  const { data } = await supabase.rpc('get_guest_cases', { p_stay_id: stayId });
+  const r = (data || []).find(x => x.id === caseId);
+  if (!r) return;
+  currentDetailCase = r;
+  document.getElementById('detailTitle').textContent = r.detail_type || r.title;
+  document.getElementById('detailStatus').textContent = statusLabel(r);
+
+  const isMessage = (r.detail_type === 'Guest Message');
+  document.getElementById('detailReplyBox').classList.toggle('hidden', !isMessage);
+  if (isMessage) await renderThread(caseId);
+  else document.getElementById('detailThread').innerHTML = '';
+
+  const feedbackBox = document.getElementById('detailFeedback');
+  if (r.verified_at && r.guest_satisfied === null){
+    feedbackBox.classList.remove('hidden');
+  } else {
+    feedbackBox.classList.add('hidden');
+  }
+  showView('requestDetail');
+}
+
+async function renderThread(caseId){
+  const { data } = await supabase.rpc('get_case_messages', { p_case_id: caseId, p_stay_id: stayId });
+  const msgs = data || [];
+  document.getElementById('detailThread').innerHTML = msgs.map(m => `
+    <div style="margin:8px 0; padding:10px 14px; border-radius:12px; max-width:80%; ${m.sender === 'guest' ? 'margin-left:auto; background:var(--blue-tint);' : 'background:var(--surface); border:1px solid var(--line);'}">
+      <div style="font-size:14px;">${m.message.replace(/</g,'&lt;')}</div>
+    </div>
+  `).join('');
+}
+
+window.sendDetailReply = async function(){
+  const input = document.getElementById('detailReplyInput');
+  const val = input.value.trim();
+  if (!val || !currentDetailCase) return;
+  const { error } = await supabase.from('case_messages').insert({
+    case_id: currentDetailCase.id,
+    sender: 'guest',
+    message: val
+  });
+  if (error){ console.error(error); return; }
+  input.value = '';
+  await renderThread(currentDetailCase.id);
+};
+
+let selectedFeedback = null;
+window.setFeedback = function(satisfied){
+  selectedFeedback = satisfied;
+};
+window.submitFeedback = async function(){
+  if (selectedFeedback === null || !currentDetailCase) return;
+  const note = document.getElementById('feedbackNote').value.trim();
+  await supabase.rpc('submit_guest_feedback', {
+    p_case_id: currentDetailCase.id, p_stay_id: stayId, p_satisfied: selectedFeedback, p_note: note || null
+  });
+  document.getElementById('detailFeedback').classList.add('hidden');
+};
+
+// Live updates: if a reply arrives or status changes while the guest is
+// looking at "My Requests" or a specific thread, refresh automatically.
+if (stayId){
+  supabase
+    .channel('guest-updates')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'cases' }, () => {
+      if (!document.getElementById('viewMyRequests').classList.contains('hidden')) renderMyRequests();
+      if (!document.getElementById('viewRequestDetail').classList.contains('hidden') && currentDetailCase) openRequestDetail(currentDetailCase.id);
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'case_messages' }, () => {
+      if (!document.getElementById('viewRequestDetail').classList.contains('hidden') && currentDetailCase) renderThread(currentDetailCase.id);
+    })
+    .subscribe();
+}
 </script>
 </body>
 </html>
