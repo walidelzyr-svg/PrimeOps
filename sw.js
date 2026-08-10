@@ -18,6 +18,14 @@ self.addEventListener('activate', (e) => {
 // Network-first: always try to fetch the latest version.
 // Only fall back to the cached copy if the network is unavailable.
 self.addEventListener('fetch', (e) => {
+  // guest.html is a separate, lightweight, always-fresh page for guests --
+  // never cache it or serve a stale copy, even offline. Staff testing this
+  // app on the same device would otherwise have this service worker
+  // intercept guest.html too and risk serving an old cached version.
+  if (e.request.url.includes('guest.html')) {
+    e.respondWith(fetch(e.request));
+    return;
+  }
   e.respondWith(
     fetch(e.request)
       .then((res) => {
