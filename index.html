@@ -683,6 +683,22 @@
           <div style="font-size:11px; color:var(--muted); font-weight:400; margin-top:2px;">Set up guest access — generates the PIN for their room</div>
         </div>
       </div>
+      <div class="opt" id="checkedInOpt" onclick="openCheckedInGuests()" style="padding:16px 14px; margin-top:10px; display:none; align-items:center; gap:12px; text-align:left;">
+        <span class="e" style="font-size:24px;">🟢</span>
+        <div>
+          <div>Checked-in Guests</div>
+          <div style="font-size:11px; color:var(--muted); font-weight:400; margin-top:2px;">View who currently has guest platform access, check out early</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Checked-in Guests -->
+  <div class="overlay" id="checkedInOverlay" onclick="closeCheckedInOnBg(event)">
+    <div class="sheet">
+      <div class="sheet-handle"></div>
+      <div class="sheet-title">Checked-in Guests</div>
+      <div id="checkedInList" style="margin-top:14px; max-height:400px; overflow-y:auto;"></div>
     </div>
   </div>
 
@@ -1284,7 +1300,8 @@ async function init(){
     await Promise.all([
       loadAnnouncement(),
       loadCases(),
-      loadEndorsements()
+      loadEndorsements(),
+      refreshCheckedInCount()
     ]);
     CONNECTED = true;
     toast('Connected to PrimeOps backend');
@@ -1293,6 +1310,13 @@ async function init(){
     supabase
       .channel('cases-changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'cases' }, () => { loadCases(); })
+      .subscribe();
+
+    // Live sync — check-ins and check-outs update the Hotel Health tile
+    // for everyone immediately, no manual refresh needed
+    supabase
+      .channel('guest-stays-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'guest_stays' }, () => { refreshCheckedInCount(); })
       .subscribe();
 
     // Live sync — endorsements appear/update for everyone immediately
@@ -1874,6 +1898,13 @@ const GM_STATS = [
 ];
 let gmActiveFilter = null;
 let staffFilter = null;
+let checkedInCount = 0;
+
+async function refreshCheckedInCount(){
+  const { data } = await supabase.rpc('get_checked_in_guests');
+  checkedInCount = (data || []).length;
+  if (hasHotelView() && document.getElementById('gmStatsGrid')) renderGM();
+}
 
 function render(){
   const list = document.getElementById('cardsList');
@@ -1887,6 +1918,7 @@ function render(){
   document.getElementById('gmBody').style.display = hasHotelView() ? 'block' : 'none';
   document.getElementById('announceOpt').style.display = isGM() ? 'flex' : 'none';
   document.getElementById('guestStayOpt').style.display = hasHotelView() ? 'flex' : 'none';
+  document.getElementById('checkedInOpt').style.display = hasHotelView() ? 'flex' : 'none';
 
   // Tappable summary tiles: an active filter reshapes the list below
   const filters = {
@@ -1954,7 +1986,7 @@ function renderGM(){
     const n = cases.filter(stat.filter).length;
     const active = gmActiveFilter===stat.key ? 'active' : '';
     return `<div class="gm-stat ${active}" onclick="selectGmStat('${stat.key}')"><span class="e">${stat.e}</span><div class="n">${n}</div><div class="l">${stat.l}</div></div>`;
-  }).join('');
+  }).join('') + `<div class="gm-stat" onclick="openCheckedInGuests()"><span class="e">🔑</span><div class="n">${checkedInCount}</div><div class="l">Checked-in Guests</div></div>`;
 
   const hint = document.getElementById('gmHint');
   const title = document.getElementById('gmDetailTitle');
@@ -2085,6 +2117,8 @@ function gmCardHtml(c){
       </div>
       ${descLine(c)}
       ${timesLine(c)}
+      ${c.guest_satisfied !== null && c.guest_satisfied !== undefined ? `<div style="margin-top:8px; font-size:13px;">${c.guest_satisfied ? '👍' : '👎'} Guest feedback${c.guest_note ? ': "' + c.guest_note.replace(/</g,'&lt;') + '"' : ''}</div>` : ''}
+      ${c.detail_type === 'Guest Message' ? `<button class="btn ghost" style="margin-top:8px;" onclick="openGuestConvo('${c.id}')">💬 View Conversation</button>` : ''}
       ${requestEditCancelBtns(c)}
     </div>
   `;
@@ -2173,6 +2207,7 @@ function cardHtml(c){
       </div>
       ${descLine(c)}
       ${timesLine(c)}
+      ${c.guest_satisfied !== null && c.guest_satisfied !== undefined ? `<div style="margin-top:8px; font-size:13px;">${c.guest_satisfied ? '👍' : '👎'} Guest feedback${c.guest_note ? ': "' + c.guest_note.replace(/</g,'&lt;') + '"' : ''}</div>` : ''}
       <button class="btn ${btnClass(c.status)}" onclick="advance('${c.id}')">${actionLabel(c.status)}</button>
       ${c.detail_type === 'Guest Message' ? `<button class="btn ghost" style="margin-top:8px;" onclick="openGuestConvo('${c.id}')">💬 View Conversation</button>` : ''}
     </div>
@@ -2504,13 +2539,38 @@ async function submitGuestStay(){
 /* ---------------- Guest conversation (reply to Other/Message) ---------------- */
 let currentGuestConvoCaseId = null;
 
+async function openCheckedInGuests(){
+  const { data } = await supabase.rpc('get_checked_in_guests');
+  const list = document.getElementById('checkedInList');
+  const rows = data || [];
+  list.innerHTML = rows.length ? rows.map(g => `
+    <div class="opt" style="padding:12px 14px; margin-top:8px; align-items:center; gap:12px; text-align:left;">
+      <div style="flex:1;">
+        <div style="font-weight:700;">Room ${g.room_number} — ${g.guest_name}</div>
+        <div style="font-size:11px; color:var(--muted);">${g.arrival_date} → ${g.departure_date}</div>
+      </div>
+      <button class="btn ghost" onclick="checkOutGuest('${g.id}')">Check Out</button>
+    </div>
+  `).join('') : '<p style="color:var(--muted); font-size:14px;">No one currently checked in.</p>';
+  document.getElementById('checkedInOverlay').classList.add('open');
+}
+function closeCheckedInOnBg(e){ if(e.target.id==='checkedInOverlay') document.getElementById('checkedInOverlay').classList.remove('open'); }
+
+async function checkOutGuest(stayId){
+  const { error } = await supabase.from('guest_stays').update({ checked_out_at: new Date().toISOString() }).eq('id', stayId);
+  if (error){ toast("Couldn't check out — try again"); return; }
+  toast('Guest checked out — their access has ended');
+  openCheckedInGuests();
+  refreshCheckedInCount();
+}
+
 async function renderGuestConvoThread(){
-  const { data } = await supabase.from('case_messages').select('sender,message,created_at').eq('case_id', currentGuestConvoCaseId).order('created_at');
+  const { data } = await supabase.from('case_messages').select('sender,message,message_translated,created_at').eq('case_id', currentGuestConvoCaseId).order('created_at');
   const box = document.getElementById('guestConvoThread');
   box.innerHTML = (data || []).map(m => `
     <div style="margin:8px 0; padding:10px 14px; border-radius:12px; max-width:80%; ${m.sender === 'staff' ? 'margin-left:auto; background:var(--blue-tint);' : 'background:var(--paper); border:1px solid var(--line);'}">
       <div style="font-size:11px; color:var(--muted); margin-bottom:2px;">${m.sender === 'staff' ? 'Staff' : 'Guest'}</div>
-      <div style="font-size:14px;">${(m.message || '').replace(/</g,'&lt;')}</div>
+      <div style="font-size:14px;">${((m.sender === 'guest' ? (m.message_translated || m.message) : m.message) || '').replace(/</g,'&lt;')}</div>
     </div>
   `).join('');
   box.scrollTop = box.scrollHeight;
@@ -2528,13 +2588,16 @@ async function sendGuestConvoReply(){
   const input = document.getElementById('guestConvoInput');
   const val = input.value.trim();
   if (!val || !currentGuestConvoCaseId) return;
-  const { error } = await supabase.from('case_messages').insert({
-    case_id: currentGuestConvoCaseId,
-    sender: 'staff',
-    message: val,
-    created_by: currentMember?.id || null
-  });
-  if (error){ console.error(error); toast("Couldn't send — check your connection"); return; }
+  const { data: sessionData } = await supabase.auth.getSession();
+  const token = sessionData?.session?.access_token;
+  try {
+    const res = await fetch('https://ktdnljmfnniuagwhdzas.supabase.co/functions/v1/translate-message', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({ case_id: currentGuestConvoCaseId, sender: 'staff', message: val })
+    });
+    if (!res.ok){ console.error(await res.text()); toast("Couldn't send — check your connection"); return; }
+  } catch (err){ console.error(err); toast("Couldn't send — check your connection"); return; }
   input.value = '';
   await renderGuestConvoThread();
 }
@@ -3494,6 +3557,7 @@ Object.assign(window, {
   chooseAnnounce, closeAnnounceOnBg, submitAnnouncement, removeAnnouncement,
   chooseGuestStay, closeGuestStayOnBg, closeGuestStayPinOnBg, submitGuestStay,
   openGuestConvo, closeGuestConvoOnBg, sendGuestConvoReply,
+  openCheckedInGuests, closeCheckedInOnBg, checkOutGuest,
   selectWhatIdx, selectReqCategoryIdx, selectReqDeptIdx, selectEndDeptIdx, selectReportDeptIdx,
   handleVerifyPhotoSelected, handleReqFile, handleEndFile,
   toggleCheckItem, submitChecklist, selectSummary, handleVerifyAttach, proceedWithoutProof
