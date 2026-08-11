@@ -390,14 +390,20 @@ window.openRequestDetail = async function(caseId){
   else document.getElementById('detailThread').innerHTML = '';
 
   const feedbackBox = document.getElementById('detailFeedback');
+  const feedbackWasHidden = feedbackBox.classList.contains('hidden');
   if (r.verified_at && r.guest_satisfied === null){
     feedbackBox.classList.remove('hidden');
-    selectedFeedback = null;
-    document.getElementById('feedbackYesBtn').style.background = '';
-    document.getElementById('feedbackYesBtn').style.borderColor = '';
-    document.getElementById('feedbackNoBtn').style.background = '';
-    document.getElementById('feedbackNoBtn').style.borderColor = '';
-    document.getElementById('feedbackNote').value = '';
+    if (feedbackWasHidden){
+      // Only reset the form on a genuinely new appearance -- polling
+      // re-runs this every few seconds, and shouldn't wipe out a note
+      // the guest is still in the middle of typing.
+      selectedFeedback = null;
+      document.getElementById('feedbackYesBtn').style.background = '';
+      document.getElementById('feedbackYesBtn').style.borderColor = '';
+      document.getElementById('feedbackNoBtn').style.background = '';
+      document.getElementById('feedbackNoBtn').style.borderColor = '';
+      document.getElementById('feedbackNote').value = '';
+    }
   } else {
     feedbackBox.classList.add('hidden');
   }
@@ -454,19 +460,19 @@ function toast_confirmed(){
   box.insertAdjacentHTML('beforebegin', `<p style="color:var(--green); font-size:13px; font-weight:600;">${T[lang].feedbackThanks || 'Thank you!'}</p>`);
 }
 
-// Live updates: if a reply arrives or status changes while the guest is
-// looking at "My Requests" or a specific thread, refresh automatically.
+// Realtime can't safely work here: Postgres has no way to scope an
+// anon connection to "only this guest's session," so a permissive-
+// enough policy for realtime to fire would mean any anon connection
+// could potentially read any guest's messages. Polling through the
+// same session-verified functions avoids that entirely -- a few
+// seconds of delay instead of instant, nothing new exposed.
 if (sessionId){
-  supabase
-    .channel('guest-updates')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'cases' }, () => {
-      if (!document.getElementById('viewMyRequests').classList.contains('hidden')) renderMyRequests();
-      if (!document.getElementById('viewRequestDetail').classList.contains('hidden') && currentDetailCase) openRequestDetail(currentDetailCase.id);
-    })
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'case_messages' }, () => {
-      if (!document.getElementById('viewRequestDetail').classList.contains('hidden') && currentDetailCase) renderThread(currentDetailCase.id);
-    })
-    .subscribe();
+  setInterval(() => {
+    if (!document.getElementById('viewMyRequests').classList.contains('hidden')) renderMyRequests();
+    if (!document.getElementById('viewRequestDetail').classList.contains('hidden') && currentDetailCase){
+      openRequestDetail(currentDetailCase.id);
+    }
+  }, 5000);
 }
 </script>
 </body>
