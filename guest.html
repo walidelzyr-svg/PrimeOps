@@ -212,6 +212,11 @@ let guestCategories = [];
 window.setLang = function(l){
   lang = l;
   applyTranslations();
+  if (sessionId){
+    supabase.rpc('set_guest_language', { p_session_id: sessionId, p_language: l }).then(({ error }) => {
+      if (error) console.error('set_guest_language error:', error);
+    });
+  }
   showView(sessionId ? 'main' : 'pin');
 };
 
@@ -220,7 +225,7 @@ window.verifyPin = async function(){
   const errBox = document.getElementById('pinError');
   errBox.textContent = '';
   if (!pin || !room){ errBox.textContent = T[lang].pinError; return; }
-  const { data, error } = await supabase.rpc('verify_guest_pin', { p_room: room, p_pin: pin });
+  const { data, error } = await supabase.rpc('verify_guest_pin', { p_room: room, p_pin: pin, p_language: lang });
   console.log('verify_guest_pin response:', { data, error });
   if (error || !data || data.error === 'invalid'){
     errBox.textContent = T[lang].pinError;
