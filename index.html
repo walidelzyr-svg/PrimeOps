@@ -702,6 +702,20 @@
     </div>
   </div>
 
+  <!-- Reject a guest request, with a comment the guest will see -->
+  <div class="overlay" id="rejectOverlay" onclick="closeRejectOnBg(event)">
+    <div class="sheet">
+      <div class="sheet-handle"></div>
+      <div class="sheet-title">Reject Request</div>
+      <div style="font-size:12px; color:var(--muted); margin-top:4px;">The guest will see this comment</div>
+      <div class="field" style="margin-top:14px;">
+        <textarea id="rejectComment" rows="3" placeholder="e.g. Sorry, no availability for late check-out today" style="width:100%; padding:12px; border:1px solid var(--line); border-radius:10px; font-size:15px; font-family:var(--sans); resize:vertical;"></textarea>
+      </div>
+      <div class="login-error" id="rejectError"></div>
+      <button class="btn" style="width:100%; margin-top:8px; background:var(--red); color:#fff;" onclick="submitReject()">Confirm Reject</button>
+    </div>
+  </div>
+
   <!-- Guest Requests & Messages chooser -->
   <div class="overlay" id="guestActivityOverlay" onclick="closeGuestActivityOnBg(event)">
     <div class="sheet">
@@ -1855,13 +1869,13 @@ async function closeEndorsement(id, isOverride){
 
 /* ---------------- Render ---------------- */
 function statusLabel(s){
-  return {waiting:"Waiting Acceptance", in_progress:"In Progress", ready_verify:"Ready for Verification", completed:"Completed"}[s];
+  return {waiting:"Waiting Acceptance", in_progress:"In Progress", ready_verify:"Ready for Verification", completed:"Completed", rejected:"Rejected"}[s];
 }
 function actionLabel(s){
-  return {waiting:"ACCEPT", in_progress:"CONTINUE", ready_verify:"VERIFY", completed:"VIEW"}[s];
+  return {waiting:"ACCEPT", in_progress:"CONTINUE", ready_verify:"VERIFY", completed:"VIEW", rejected:"VIEW"}[s];
 }
 function btnClass(s){
-  return {waiting:"primary", in_progress:"primary", ready_verify:"verify", completed:"done"}[s];
+  return {waiting:"primary", in_progress:"primary", ready_verify:"verify", completed:"done", rejected:"done"}[s];
 }
 
 function isGM(){ return currentMember?.role === 'gm'; }
@@ -1911,14 +1925,14 @@ function dateGroupsHtml(items, dateFn, cardFn){
 }
 
 const GM_STATS = [
-  {key:'critical', e:'🔴', l:'Critical Open', filter:c=>(c.effective_priority||c.priority)==='critical' && c.status!=='completed'},
+  {key:'critical', e:'🔴', l:'Critical Open', filter:c=>(c.effective_priority||c.priority)==='critical' && c.status!=='completed' && c.status!=='rejected'},
   {key:'waiting', e:'⏳', l:'Waiting Acceptance', filter:c=>c.status==='waiting'},
   {key:'in_progress', e:'🛠️', l:'In Progress', filter:c=>c.status==='in_progress'},
   {key:'ready_verify', e:'✅', l:'Ready to Verify', filter:c=>c.status==='ready_verify'},
   {key:'completed_today', e:'🏁', l:'Completed Today', filter:c=>c.status==='completed' && isToday(c.verified_at)},
-  {key:'total_open', e:'📋', l:'Total Open', filter:c=>c.status!=='completed'},
-  {key:'guest_requests', e:'📋', l:'Pending Guest Requests', hidden:true, filter:c=>c.guest_stay_id && c.detail_type!=='Guest Message' && c.status!=='completed'},
-  {key:'guest_messages', e:'💬', l:'Ongoing Messages', hidden:true, filter:c=>c.detail_type==='Guest Message' && c.status!=='completed'}
+  {key:'total_open', e:'📋', l:'Total Open', filter:c=>c.status!=='completed' && c.status!=='rejected'},
+  {key:'guest_requests', e:'📋', l:'Pending Guest Requests', hidden:true, filter:c=>c.guest_stay_id && c.detail_type!=='Guest Message' && c.status!=='completed' && c.status!=='rejected'},
+  {key:'guest_messages', e:'💬', l:'Ongoing Messages', hidden:true, filter:c=>c.detail_type==='Guest Message' && c.status!=='completed' && c.status!=='rejected'}
 ];
 let gmActiveFilter = null;
 let staffFilter = null;
@@ -1933,8 +1947,8 @@ async function refreshCheckedInCount(){
 function render(){
   const list = document.getElementById('cardsList');
   const empty = document.getElementById('emptyState');
-  const active = cases.filter(c=>c.status!=='completed');
-  const history = cases.filter(c=>c.status==='completed');
+  const active = cases.filter(c=>c.status!=='completed' && c.status!=='rejected');
+  const history = cases.filter(c=>c.status==='completed' || c.status==='rejected');
   const historyCountEl = document.getElementById('historyCount');
   if (historyCountEl) historyCountEl.textContent = history.length || '';
 
@@ -2144,6 +2158,7 @@ function gmCardHtml(c){
       ${descLine(c)}
       ${timesLine(c)}
       ${c.guest_satisfied !== null && c.guest_satisfied !== undefined ? `<div style="margin-top:8px; font-size:13px;">${c.guest_satisfied ? '👍' : '👎'} Guest feedback${c.guest_note ? ': "' + c.guest_note.replace(/</g,'&lt;') + '"' : ''}</div>` : ''}
+      ${c.status === 'rejected' && c.rejection_comment ? `<div style="margin-top:8px; font-size:13px; color:var(--red);">Rejected: "${c.rejection_comment.replace(/</g,'&lt;')}"</div>` : ''}
       ${c.detail_type === 'Guest Message' && c.status !== 'completed' ? `<div style="display:flex; gap:8px; margin-top:8px;"><button class="btn ghost" style="flex:1;" onclick="openGuestConvo('${c.id}')">💬 View Conversation</button><button class="btn ghost" style="flex:1;" onclick="closeConversation('${c.id}')">✅ Close Conversation</button></div>` : ''}
       ${requestEditCancelBtns(c)}
     </div>
@@ -2254,7 +2269,10 @@ function cardHtml(c){
       ${descLine(c)}
       ${timesLine(c)}
       ${c.guest_satisfied !== null && c.guest_satisfied !== undefined ? `<div style="margin-top:8px; font-size:13px;">${c.guest_satisfied ? '👍' : '👎'} Guest feedback${c.guest_note ? ': "' + c.guest_note.replace(/</g,'&lt;') + '"' : ''}</div>` : ''}
-      <button class="btn ${btnClass(c.status)}" onclick="advance('${c.id}')">${actionLabel(c.status)}</button>
+      ${c.status === 'rejected' && c.rejection_comment ? `<div style="margin-top:8px; font-size:13px; color:var(--red);">Rejected: "${c.rejection_comment.replace(/</g,'&lt;')}"</div>` : ''}
+      ${c.guest_stay_id && c.detail_type !== 'Guest Message' && c.status === 'waiting'
+        ? `<div style="display:flex; gap:8px;"><button class="btn primary" style="flex:1;" onclick="advance('${c.id}')">✅ Accept</button><button class="btn" style="flex:1; background:var(--red); color:#fff;" onclick="openReject('${c.id}')">❌ Reject</button></div>`
+        : `<button class="btn ${btnClass(c.status)}" onclick="advance('${c.id}')">${actionLabel(c.status)}</button>`}
       ${c.detail_type === 'Guest Message' && c.status !== 'completed' ? `<div style="display:flex; gap:8px; margin-top:8px;"><button class="btn ghost" style="flex:1;" onclick="openGuestConvo('${c.id}')">💬 View Conversation</button><button class="btn ghost" style="flex:1;" onclick="closeConversation('${c.id}')">✅ Close Conversation</button></div>` : ''}
     </div>
   `;
@@ -2616,6 +2634,37 @@ async function closeConversation(caseId){
     .eq('id', caseId);
   if (error){ toast("Couldn't close — try again"); return; }
   toast('Conversation closed — a new message from this guest starts fresh');
+  await loadCases();
+}
+
+let pendingRejectId = null;
+
+function openReject(caseId){
+  pendingRejectId = caseId;
+  document.getElementById('rejectComment').value = '';
+  document.getElementById('rejectError').classList.remove('show');
+  document.getElementById('rejectOverlay').classList.add('open');
+}
+function closeRejectOnBg(e){ if(e.target.id==='rejectOverlay') document.getElementById('rejectOverlay').classList.remove('open'); }
+
+async function submitReject(){
+  const comment = document.getElementById('rejectComment').value.trim();
+  const errBox = document.getElementById('rejectError');
+  if (!comment){
+    errBox.textContent = 'Add a short comment — the guest will see this.';
+    errBox.classList.add('show');
+    return;
+  }
+  const { error } = await supabase.from('cases')
+    .update({ status: 'rejected', rejection_comment: comment, verified_at: new Date().toISOString(), verified_by: currentMember?.id || null })
+    .eq('id', pendingRejectId);
+  if (error){
+    errBox.textContent = "Couldn't reject — check your connection and try again.";
+    errBox.classList.add('show');
+    return;
+  }
+  document.getElementById('rejectOverlay').classList.remove('open');
+  toast('Request rejected — guest will see your comment');
   await loadCases();
 }
 
@@ -3614,6 +3663,7 @@ Object.assign(window, {
   openGuestConvo, closeGuestConvoOnBg, sendGuestConvoReply,
   openCheckedInGuests, closeCheckedInOnBg, checkOutGuest,
   openGuestActivity, closeGuestActivityOnBg, selectGuestActivityStat, closeConversation,
+  openReject, closeRejectOnBg, submitReject,
   selectWhatIdx, selectReqCategoryIdx, selectReqDeptIdx, selectEndDeptIdx, selectReportDeptIdx,
   handleVerifyPhotoSelected, handleReqFile, handleEndFile,
   toggleCheckItem, submitChecklist, selectSummary, handleVerifyAttach, proceedWithoutProof
