@@ -702,6 +702,28 @@
     </div>
   </div>
 
+  <!-- Guest Requests & Messages chooser -->
+  <div class="overlay" id="guestActivityOverlay" onclick="closeGuestActivityOnBg(event)">
+    <div class="sheet">
+      <div class="sheet-handle"></div>
+      <div class="sheet-title">Guest Requests &amp; Messages</div>
+      <div class="opt" onclick="selectGuestActivityStat('guest_requests')" style="padding:16px 14px; margin-top:14px; align-items:center; gap:12px; text-align:left;">
+        <span class="e" style="font-size:24px;">📋</span>
+        <div>
+          <div>Pending Guest Requests</div>
+          <div style="font-size:11px; color:var(--muted); font-weight:400; margin-top:2px;"><span id="guestActivityReqCount">0</span> not yet verified and closed</div>
+        </div>
+      </div>
+      <div class="opt" onclick="selectGuestActivityStat('guest_messages')" style="padding:16px 14px; margin-top:10px; align-items:center; gap:12px; text-align:left;">
+        <span class="e" style="font-size:24px;">💬</span>
+        <div>
+          <div>Ongoing Messages</div>
+          <div style="font-size:11px; color:var(--muted); font-weight:400; margin-top:2px;"><span id="guestActivityMsgCount">0</span> conversation(s) still open</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- New Guest Stay flow (admin/GM only) -->
   <div class="overlay" id="guestStayOverlay" onclick="closeGuestStayOnBg(event)">
     <div class="sheet">
@@ -1894,7 +1916,9 @@ const GM_STATS = [
   {key:'in_progress', e:'🛠️', l:'In Progress', filter:c=>c.status==='in_progress'},
   {key:'ready_verify', e:'✅', l:'Ready to Verify', filter:c=>c.status==='ready_verify'},
   {key:'completed_today', e:'🏁', l:'Completed Today', filter:c=>c.status==='completed' && isToday(c.verified_at)},
-  {key:'total_open', e:'📋', l:'Total Open', filter:c=>c.status!=='completed'}
+  {key:'total_open', e:'📋', l:'Total Open', filter:c=>c.status!=='completed'},
+  {key:'guest_requests', e:'📋', l:'Pending Guest Requests', hidden:true, filter:c=>c.guest_stay_id && c.detail_type!=='Guest Message' && c.status!=='completed'},
+  {key:'guest_messages', e:'💬', l:'Ongoing Messages', hidden:true, filter:c=>c.detail_type==='Guest Message' && c.status!=='completed'}
 ];
 let gmActiveFilter = null;
 let staffFilter = null;
@@ -1982,11 +2006,13 @@ function render(){
 }
 
 function renderGM(){
-  document.getElementById('gmStatsGrid').innerHTML = GM_STATS.map(stat=>{
+  document.getElementById('gmStatsGrid').innerHTML = GM_STATS.filter(s=>!s.hidden).map(stat=>{
     const n = cases.filter(stat.filter).length;
     const active = gmActiveFilter===stat.key ? 'active' : '';
     return `<div class="gm-stat ${active}" onclick="selectGmStat('${stat.key}')"><span class="e">${stat.e}</span><div class="n">${n}</div><div class="l">${stat.l}</div></div>`;
-  }).join('') + `<div class="gm-stat" onclick="openCheckedInGuests()"><span class="e">🔑</span><div class="n">${checkedInCount}</div><div class="l">Checked-in Guests</div></div>`;
+  }).join('')
+  + `<div class="gm-stat" onclick="openCheckedInGuests()"><span class="e">🔑</span><div class="n">${checkedInCount}</div><div class="l">Checked-in Guests</div></div>`
+  + `<div class="gm-stat" onclick="openGuestActivity()"><span class="e">🛎️</span><div class="n">${guestActivityCount()}</div><div class="l">Guest Requests &amp; Messages</div></div>`;
 
   const hint = document.getElementById('gmHint');
   const title = document.getElementById('gmDetailTitle');
@@ -2118,7 +2144,7 @@ function gmCardHtml(c){
       ${descLine(c)}
       ${timesLine(c)}
       ${c.guest_satisfied !== null && c.guest_satisfied !== undefined ? `<div style="margin-top:8px; font-size:13px;">${c.guest_satisfied ? '👍' : '👎'} Guest feedback${c.guest_note ? ': "' + c.guest_note.replace(/</g,'&lt;') + '"' : ''}</div>` : ''}
-      ${c.detail_type === 'Guest Message' ? `<button class="btn ghost" style="margin-top:8px;" onclick="openGuestConvo('${c.id}')">💬 View Conversation</button>` : ''}
+      ${c.detail_type === 'Guest Message' && c.status !== 'completed' ? `<div style="display:flex; gap:8px; margin-top:8px;"><button class="btn ghost" style="flex:1;" onclick="openGuestConvo('${c.id}')">💬 View Conversation</button><button class="btn ghost" style="flex:1;" onclick="closeConversation('${c.id}')">✅ Close Conversation</button></div>` : ''}
       ${requestEditCancelBtns(c)}
     </div>
   `;
@@ -2126,6 +2152,26 @@ function gmCardHtml(c){
 
 function selectGmStat(key){
   gmActiveFilter = (gmActiveFilter===key) ? null : key;
+  renderGM();
+}
+
+function guestActivityCount(){
+  const reqStat = GM_STATS.find(s=>s.key==='guest_requests');
+  const msgStat = GM_STATS.find(s=>s.key==='guest_messages');
+  return cases.filter(reqStat.filter).length + cases.filter(msgStat.filter).length;
+}
+
+function openGuestActivity(){
+  const reqN = cases.filter(GM_STATS.find(s=>s.key==='guest_requests').filter).length;
+  const msgN = cases.filter(GM_STATS.find(s=>s.key==='guest_messages').filter).length;
+  document.getElementById('guestActivityReqCount').textContent = reqN;
+  document.getElementById('guestActivityMsgCount').textContent = msgN;
+  document.getElementById('guestActivityOverlay').classList.add('open');
+}
+function closeGuestActivityOnBg(e){ if(e.target.id==='guestActivityOverlay') document.getElementById('guestActivityOverlay').classList.remove('open'); }
+function selectGuestActivityStat(key){
+  document.getElementById('guestActivityOverlay').classList.remove('open');
+  gmActiveFilter = key;
   renderGM();
 }
 
@@ -2209,7 +2255,7 @@ function cardHtml(c){
       ${timesLine(c)}
       ${c.guest_satisfied !== null && c.guest_satisfied !== undefined ? `<div style="margin-top:8px; font-size:13px;">${c.guest_satisfied ? '👍' : '👎'} Guest feedback${c.guest_note ? ': "' + c.guest_note.replace(/</g,'&lt;') + '"' : ''}</div>` : ''}
       <button class="btn ${btnClass(c.status)}" onclick="advance('${c.id}')">${actionLabel(c.status)}</button>
-      ${c.detail_type === 'Guest Message' ? `<button class="btn ghost" style="margin-top:8px;" onclick="openGuestConvo('${c.id}')">💬 View Conversation</button>` : ''}
+      ${c.detail_type === 'Guest Message' && c.status !== 'completed' ? `<div style="display:flex; gap:8px; margin-top:8px;"><button class="btn ghost" style="flex:1;" onclick="openGuestConvo('${c.id}')">💬 View Conversation</button><button class="btn ghost" style="flex:1;" onclick="closeConversation('${c.id}')">✅ Close Conversation</button></div>` : ''}
     </div>
   `;
 }
@@ -2562,6 +2608,15 @@ async function checkOutGuest(stayId){
   toast('Guest checked out — their access has ended');
   openCheckedInGuests();
   refreshCheckedInCount();
+}
+
+async function closeConversation(caseId){
+  const { error } = await supabase.from('cases')
+    .update({ status: 'completed', verified_at: new Date().toISOString(), verified_by: currentMember?.id || null })
+    .eq('id', caseId);
+  if (error){ toast("Couldn't close — try again"); return; }
+  toast('Conversation closed — a new message from this guest starts fresh');
+  await loadCases();
 }
 
 async function renderGuestConvoThread(){
@@ -3558,6 +3613,7 @@ Object.assign(window, {
   chooseGuestStay, closeGuestStayOnBg, closeGuestStayPinOnBg, submitGuestStay,
   openGuestConvo, closeGuestConvoOnBg, sendGuestConvoReply,
   openCheckedInGuests, closeCheckedInOnBg, checkOutGuest,
+  openGuestActivity, closeGuestActivityOnBg, selectGuestActivityStat, closeConversation,
   selectWhatIdx, selectReqCategoryIdx, selectReqDeptIdx, selectEndDeptIdx, selectReportDeptIdx,
   handleVerifyPhotoSelected, handleReqFile, handleEndFile,
   toggleCheckItem, submitChecklist, selectSummary, handleVerifyAttach, proceedWithoutProof
