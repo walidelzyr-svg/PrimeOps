@@ -716,6 +716,20 @@
     </div>
   </div>
 
+  <!-- Reply to Late Check-out Request -->
+  <div class="overlay" id="replyOverlay" onclick="closeReplyOnBg(event)">
+    <div class="sheet">
+      <div class="sheet-handle"></div>
+      <div class="sheet-title">Reply to Guest</div>
+      <div style="font-size:12px; color:var(--muted); margin-top:4px;">The guest will see this reply — approve, decline, or explain, in your own words</div>
+      <div class="field" style="margin-top:14px;">
+        <textarea id="replyComment" rows="3" placeholder="e.g. Yes, approved until 1PM. Enjoy your stay!" style="width:100%; padding:12px; border:1px solid var(--line); border-radius:10px; font-size:15px; font-family:var(--sans); resize:vertical;"></textarea>
+      </div>
+      <div class="login-error" id="replyError"></div>
+      <button class="btn primary" style="width:100%; margin-top:8px;" onclick="submitReply()">Send Reply</button>
+    </div>
+  </div>
+
   <!-- Guest Requests & Messages chooser -->
   <div class="overlay" id="guestActivityOverlay" onclick="closeGuestActivityOnBg(event)">
     <div class="sheet">
@@ -2160,8 +2174,12 @@ function gmCardHtml(c){
       ${c.guest_satisfied !== null && c.guest_satisfied !== undefined ? `<div style="margin-top:8px; font-size:13px;">${c.guest_satisfied ? '👍' : '👎'} Guest feedback${c.guest_note ? ': "' + c.guest_note.replace(/</g,'&lt;') + '"' : ''}</div>` : ''}
       ${c.status === 'rejected' && c.rejection_comment ? `<div style="margin-top:8px; font-size:13px; color:var(--red);">Rejected: "${c.rejection_comment.replace(/</g,'&lt;')}"</div>` : ''}
       ${c.status === 'cancelled' ? `<div style="margin-top:8px; font-size:13px; color:var(--muted);">Cancelled by guest</div>` : ''}
-      ${c.guest_stay_id && c.detail_type !== 'Guest Message' && c.status === 'waiting'
+      ${c.staff_reply ? `<div style="margin-top:8px; font-size:13px; color:var(--blue-ink);">Your reply: "${c.staff_reply.replace(/</g,'&lt;')}"</div>` : ''}
+      ${c.guest_stay_id && c.detail_type !== 'Guest Message' && c.detail_type !== 'Late Check-out Request' && c.status === 'waiting'
         ? `<div style="display:flex; gap:8px;"><button class="btn primary" style="flex:1;" onclick="advance('${c.id}')">✅ Accept</button><button class="btn" style="flex:1; background:var(--red); color:#fff;" onclick="openReject('${c.id}')">❌ Reject</button></div>`
+        : ''}
+      ${c.detail_type === 'Late Check-out Request' && c.status === 'waiting'
+        ? `<button class="btn primary" style="width:100%;" onclick="openReply('${c.id}')">💬 Reply</button>`
         : ''}
       ${c.detail_type === 'Guest Message' && c.status !== 'completed' ? `<div style="display:flex; gap:8px; margin-top:8px;"><button class="btn ghost" style="flex:1;" onclick="openGuestConvo('${c.id}')">💬 View Conversation</button><button class="btn ghost" style="flex:1;" onclick="closeConversation('${c.id}')">✅ Close Conversation</button></div>` : ''}
       ${requestEditCancelBtns(c)}
@@ -2275,7 +2293,10 @@ function cardHtml(c){
       ${c.guest_satisfied !== null && c.guest_satisfied !== undefined ? `<div style="margin-top:8px; font-size:13px;">${c.guest_satisfied ? '👍' : '👎'} Guest feedback${c.guest_note ? ': "' + c.guest_note.replace(/</g,'&lt;') + '"' : ''}</div>` : ''}
       ${c.status === 'rejected' && c.rejection_comment ? `<div style="margin-top:8px; font-size:13px; color:var(--red);">Rejected: "${c.rejection_comment.replace(/</g,'&lt;')}"</div>` : ''}
       ${c.status === 'cancelled' ? `<div style="margin-top:8px; font-size:13px; color:var(--muted);">Cancelled by guest</div>` : ''}
-      ${c.guest_stay_id && c.detail_type !== 'Guest Message' && c.status === 'waiting'
+      ${c.staff_reply ? `<div style="margin-top:8px; font-size:13px; color:var(--blue-ink);">Your reply: "${c.staff_reply.replace(/</g,'&lt;')}"</div>` : ''}
+      ${c.detail_type === 'Late Check-out Request' && c.status === 'waiting'
+        ? `<button class="btn primary" style="width:100%;" onclick="openReply('${c.id}')">💬 Reply</button>`
+        : c.guest_stay_id && c.detail_type !== 'Guest Message' && c.status === 'waiting'
         ? `<div style="display:flex; gap:8px;"><button class="btn primary" style="flex:1;" onclick="advance('${c.id}')">✅ Accept</button><button class="btn" style="flex:1; background:var(--red); color:#fff;" onclick="openReject('${c.id}')">❌ Reject</button></div>`
         : `<button class="btn ${btnClass(c.status)}" onclick="advance('${c.id}')">${actionLabel(c.status)}</button>`}
       ${c.detail_type === 'Guest Message' && c.status !== 'completed' ? `<div style="display:flex; gap:8px; margin-top:8px;"><button class="btn ghost" style="flex:1;" onclick="openGuestConvo('${c.id}')">💬 View Conversation</button><button class="btn ghost" style="flex:1;" onclick="closeConversation('${c.id}')">✅ Close Conversation</button></div>` : ''}
@@ -2670,6 +2691,37 @@ async function submitReject(){
   }
   document.getElementById('rejectOverlay').classList.remove('open');
   toast('Request rejected — guest will see your comment');
+  await loadCases();
+}
+
+let pendingReplyId = null;
+
+function openReply(caseId){
+  pendingReplyId = caseId;
+  document.getElementById('replyComment').value = '';
+  document.getElementById('replyError').classList.remove('show');
+  document.getElementById('replyOverlay').classList.add('open');
+}
+function closeReplyOnBg(e){ if(e.target.id==='replyOverlay') document.getElementById('replyOverlay').classList.remove('open'); }
+
+async function submitReply(){
+  const comment = document.getElementById('replyComment').value.trim();
+  const errBox = document.getElementById('replyError');
+  if (!comment){
+    errBox.textContent = 'Write a reply — the guest will see this.';
+    errBox.classList.add('show');
+    return;
+  }
+  const { error } = await supabase.from('cases')
+    .update({ status: 'completed', staff_reply: comment, verified_at: new Date().toISOString(), verified_by: currentMember?.id || null })
+    .eq('id', pendingReplyId);
+  if (error){
+    errBox.textContent = "Couldn't send — check your connection and try again.";
+    errBox.classList.add('show');
+    return;
+  }
+  document.getElementById('replyOverlay').classList.remove('open');
+  toast('Reply sent — guest will see it now');
   await loadCases();
 }
 
@@ -3669,6 +3721,7 @@ Object.assign(window, {
   openCheckedInGuests, closeCheckedInOnBg, checkOutGuest,
   openGuestActivity, closeGuestActivityOnBg, selectGuestActivityStat, closeConversation,
   openReject, closeRejectOnBg, submitReject,
+  openReply, closeReplyOnBg, submitReply,
   selectWhatIdx, selectReqCategoryIdx, selectReqDeptIdx, selectEndDeptIdx, selectReportDeptIdx,
   handleVerifyPhotoSelected, handleReqFile, handleEndFile,
   toggleCheckItem, submitChecklist, selectSummary, handleVerifyAttach, proceedWithoutProof
