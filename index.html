@@ -1180,6 +1180,7 @@ function playAlertSound(urgent){
   } catch(_){}
 }
 let HK_DEPT_ID = null;
+let FB_DEPT_ID = null;
 let reportState = { where:null, assetId:null, what:null, targetDeptId:null, guestReported:null, photo:null, photoUrl:null };
 let reportDeptChoices = [];
 let pendingVerifyCardId = null;
@@ -1337,6 +1338,8 @@ async function init(){
   try {
     const { data: dept } = await supabase.from('departments').select('id').eq('code','HK').single();
     if (dept) HK_DEPT_ID = dept.id;
+    const { data: fbDept } = await supabase.from('departments').select('id').eq('code','FB').single();
+    if (fbDept) FB_DEPT_ID = fbDept.id;
 
     // Reference/lookup data first, in parallel — nothing here depends on
     // anything else in this batch, so no reason to wait on each one in turn
@@ -1954,6 +1957,7 @@ const GM_STATS = [
   {key:'ready_verify', e:'✅', l:'Ready to Verify', filter:c=>c.status==='ready_verify'},
   {key:'completed_today', e:'🏁', l:'Completed Today', filter:c=>c.status==='completed' && isToday(c.verified_at)},
   {key:'total_open', e:'📋', l:'Total Open', filter:c=>c.status!=='completed' && c.status!=='rejected' && c.status!=='cancelled'},
+  {key:'fb_orders_visible', e:'🍽️', l:'Active Imo Bar Orders', filter:c=>c.detail_type==='F&B Order' && c.status!=='completed' && c.status!=='rejected' && c.status!=='cancelled'},
   {key:'guest_requests', e:'📋', l:'Pending Guest Requests', hidden:true, filter:c=>c.guest_stay_id && c.detail_type!=='Guest Message' && c.status!=='completed' && c.status!=='rejected' && c.status!=='cancelled'},
   {key:'guest_messages', e:'💬', l:'Ongoing Messages', hidden:true, filter:c=>c.detail_type==='Guest Message' && c.status!=='completed' && c.status!=='rejected' && c.status!=='cancelled'}
 ];
@@ -1986,7 +1990,8 @@ function render(){
     today:  { title: 'Reported Today',     match: x => isToday(x.created_at) },
     waiting:{ title: 'Waiting Acceptance', match: x => x.status === 'waiting' },
     verify: { title: 'Ready to Verify',    match: x => x.status === 'ready_verify' },
-    done:   { title: 'Done Today',         match: x => x.status === 'completed' && isToday(x.verified_at) }
+    done:   { title: 'Done Today',         match: x => x.status === 'completed' && isToday(x.verified_at) },
+    fb_orders: { title: 'Active Imo Bar Guest Orders', match: x => x.detail_type === 'F&B Order' && x.status !== 'completed' && x.status !== 'rejected' && x.status !== 'cancelled' }
   };
   const f = staffFilter ? filters[staffFilter] : null;
   const shown = f ? cases.filter(f.match) : active;
@@ -2013,13 +2018,15 @@ function render(){
     today: cases.filter(c=>isToday(c.created_at)).length,
     waiting: cases.filter(c=>c.status==='waiting').length,
     verify: cases.filter(c=>c.status==='ready_verify').length,
-    done: cases.filter(c=>c.status==='completed' && isToday(c.verified_at)).length
+    done: cases.filter(c=>c.status==='completed' && isToday(c.verified_at)).length,
+    fbOrders: cases.filter(c=>c.detail_type==='F&B Order' && c.status!=='completed' && c.status!=='rejected' && c.status!=='cancelled').length
   };
   document.getElementById('summaryRow').innerHTML = `
     ${sumCard(s.today,'Today','today')}
     ${sumCard(s.waiting,'Waiting','waiting')}
     ${sumCard(s.verify,'To Verify','verify')}
     ${sumCard(s.done,'Done Today','done')}
+    ${currentMember?.department_id === FB_DEPT_ID ? sumCard(s.fbOrders,'Active Imo Bar Orders','fb_orders') : ''}
   `;
 
   document.getElementById('historyList').innerHTML =
@@ -2230,7 +2237,7 @@ function sumCard(n,l,key){
 function selectSummary(key){
   if (hasHotelView()){
     // GM/admin: jump the Hotel Health view to the matching stat
-    const map = { today:'total_open', waiting:'waiting', verify:'ready_verify', done:'completed_today' };
+    const map = { today:'total_open', waiting:'waiting', verify:'ready_verify', done:'completed_today', fb_orders:'fb_orders' };
     gmActiveFilter = (gmActiveFilter===map[key]) ? null : map[key];
     render();
     return;
