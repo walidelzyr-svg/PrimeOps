@@ -332,14 +332,17 @@ window.setLang = async function(l){
   lang = l;
   applyTranslations();
   if (sessionId){
-    const { data: valid } = await supabase.rpc('is_guest_session_active', { p_session_id: sessionId });
-    if (valid){
+    const { data: result } = await supabase.rpc('is_guest_session_active', { p_session_id: sessionId, p_room: room });
+    if (result?.active){
       supabase.rpc('set_guest_language', { p_session_id: sessionId, p_language: l }).then(({ error }) => {
         if (error) console.error('set_guest_language error:', error);
       });
       showView('main');
       return;
     }
+    // Either the underlying stay ended, or this session belongs to a
+    // different room than the one in the URL right now -- either way,
+    // it's not valid for this room, so clear it and require a fresh PIN.
     sessionId = null;
     guestName = null;
     localStorage.removeItem('poGuestSessionId');
@@ -390,13 +393,15 @@ window.showView = function(name){
 
 if (sessionId){
   (async () => {
-    const { data: valid } = await supabase.rpc('is_guest_session_active', { p_session_id: sessionId });
-    if (valid){
+    const { data: result } = await supabase.rpc('is_guest_session_active', { p_session_id: sessionId, p_room: room });
+    if (result?.active){
       showView('main');
     } else {
-      // Stale session from a stay that's since been checked out --
-      // clear it so this device doesn't keep silently skipping past
-      // the PIN screen for whoever uses it next.
+      // Covers two cases: a stale session from a checked-out stay, and
+      // -- the actual vulnerability this was built to close -- a valid
+      // session for a DIFFERENT room than the one in the current URL.
+      // Either way, this session doesn't authorize this room, so clear
+      // it and require a fresh PIN rather than silently letting it ride.
       sessionId = null;
       guestName = null;
       localStorage.removeItem('poGuestSessionId');
