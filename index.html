@@ -804,6 +804,15 @@
     </div>
   </div>
 
+  <!-- F&B order details -->
+  <div class="overlay" id="orderDetailsOverlay" onclick="closeOrderDetailsOnBg(event)">
+    <div class="sheet">
+      <div class="sheet-handle"></div>
+      <div class="sheet-title">Order Details</div>
+      <div id="orderDetailsList" style="margin-top:14px; font-size:14px;"></div>
+    </div>
+  </div>
+
   <!-- Post Announcement flow (GM only) -->
   <div class="overlay" id="announceOverlay" onclick="closeAnnounceOnBg(event)">
     <div class="sheet">
@@ -2182,6 +2191,7 @@ function gmCardHtml(c){
         ? `<button class="btn primary" style="width:100%;" onclick="openReply('${c.id}')">💬 Reply</button>`
         : ''}
       ${c.detail_type === 'Guest Message' && c.status !== 'completed' ? `<div style="display:flex; gap:8px; margin-top:8px;"><button class="btn ghost" style="flex:1;" onclick="openGuestConvo('${c.id}')">💬 View Conversation</button><button class="btn ghost" style="flex:1;" onclick="closeConversation('${c.id}')">✅ Close Conversation</button></div>` : ''}
+      ${c.detail_type === 'F&B Order' ? `<button class="btn ghost" style="width:100%; margin-top:8px;" onclick="openOrderDetails('${c.id}')">🧾 View Order</button>` : ''}
       ${requestEditCancelBtns(c)}
     </div>
   `;
@@ -2300,6 +2310,7 @@ function cardHtml(c){
         ? `<div style="display:flex; gap:8px;"><button class="btn primary" style="flex:1;" onclick="advance('${c.id}')">✅ Accept</button><button class="btn" style="flex:1; background:var(--red); color:#fff;" onclick="openReject('${c.id}')">❌ Reject</button></div>`
         : `<button class="btn ${btnClass(c.status)}" onclick="advance('${c.id}')">${actionLabel(c.status)}</button>`}
       ${c.detail_type === 'Guest Message' && c.status !== 'completed' ? `<div style="display:flex; gap:8px; margin-top:8px;"><button class="btn ghost" style="flex:1;" onclick="openGuestConvo('${c.id}')">💬 View Conversation</button><button class="btn ghost" style="flex:1;" onclick="closeConversation('${c.id}')">✅ Close Conversation</button></div>` : ''}
+      ${c.detail_type === 'F&B Order' ? `<button class="btn ghost" style="width:100%; margin-top:8px;" onclick="openOrderDetails('${c.id}')">🧾 View Order</button>` : ''}
     </div>
   `;
 }
@@ -2762,6 +2773,23 @@ async function sendGuestConvoReply(){
   input.value = '';
   await renderGuestConvoThread();
 }
+
+async function openOrderDetails(caseId){
+  const { data } = await supabase.from('order_items').select('item_name,unit_price,quantity').eq('case_id', caseId).order('created_at');
+  const rows = data || [];
+  const sub = rows.reduce((s,i)=>s+i.unit_price*i.quantity, 0);
+  const vat = Math.round(sub * 0.12);
+  const sc = Math.round(sub * 0.10);
+  document.getElementById('orderDetailsList').innerHTML = rows.map(i => `
+    <div style="display:flex; justify-content:space-between; padding:6px 0;"><span>${i.item_name} × ${i.quantity}</span><span>₱${i.unit_price * i.quantity}</span></div>
+  `).join('')
+    + `<div style="display:flex; justify-content:space-between; padding:6px 0; color:var(--muted); border-top:1px solid var(--line); margin-top:8px; padding-top:10px;"><span>Subtotal</span><span>₱${sub}</span></div>`
+    + `<div style="display:flex; justify-content:space-between; padding:4px 0; color:var(--muted);"><span>VAT (12%)</span><span>₱${vat}</span></div>`
+    + `<div style="display:flex; justify-content:space-between; padding:4px 0; color:var(--muted);"><span>Service Charge (10%)</span><span>₱${sc}</span></div>`
+    + `<div style="display:flex; justify-content:space-between; padding:8px 0; font-weight:800; font-size:16px;"><span>Total</span><span>₱${sub+vat+sc}</span></div>`;
+  document.getElementById('orderDetailsOverlay').classList.add('open');
+}
+function closeOrderDetailsOnBg(e){ if(e.target.id==='orderDetailsOverlay') document.getElementById('orderDetailsOverlay').classList.remove('open'); }
 
 function chooseFireAlarm(){
   document.getElementById('chooserOverlay').classList.remove('open');
@@ -3722,6 +3750,7 @@ Object.assign(window, {
   openGuestActivity, closeGuestActivityOnBg, selectGuestActivityStat, closeConversation,
   openReject, closeRejectOnBg, submitReject,
   openReply, closeReplyOnBg, submitReply,
+  openOrderDetails, closeOrderDetailsOnBg,
   selectWhatIdx, selectReqCategoryIdx, selectReqDeptIdx, selectEndDeptIdx, selectReportDeptIdx,
   handleVerifyPhotoSelected, handleReqFile, handleEndFile,
   toggleCheckItem, submitChecklist, selectSummary, handleVerifyAttach, proceedWithoutProof

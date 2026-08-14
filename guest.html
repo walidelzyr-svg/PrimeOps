@@ -116,6 +116,7 @@
     <div id="detailStatus" style="font-weight:700; margin-bottom:16px;"></div>
     <div id="detailRejection" class="hidden" style="background:var(--red-tint); color:var(--red); padding:12px 14px; border-radius:12px; font-size:14px; margin-bottom:16px;"></div>
     <div id="detailStaffReply" class="hidden" style="background:var(--blue-tint); color:var(--blue-ink); padding:12px 14px; border-radius:12px; font-size:14px; margin-bottom:16px;"></div>
+    <div id="detailOrderItems" class="hidden" style="margin-bottom:16px; font-size:14px;"></div>
     <div id="detailCancelBox" class="hidden" style="margin-bottom:16px;">
       <button type="button" class="btn" style="width:100%; background:var(--red-tint); color:var(--red);" onclick="cancelRequest()" data-t="cancelRequest">Cancel Request</button>
     </div>
@@ -219,8 +220,58 @@
   <div id="viewOrder" class="hidden">
     <button class="back-btn" onclick="showView('main')" data-t="back">← Back</button>
     <h1 data-t="orderFoodDrinks">Order Food &amp; Drinks</h1>
-    <div class="tile" onclick="showComingSoon()"><span class="e">🍹</span><div class="t">IMO Bar</div></div>
+    <div class="tile" onclick="openMenuCategories()"><span class="e">🍹</span><div class="t">IMO Bar</div></div>
     <div class="tile" onclick="showComingSoon()"><span class="e">☕</span><div class="t">Coppa Café</div></div>
+  </div>
+
+  <!-- Menu categories -->
+  <div id="viewMenuCategories" class="hidden">
+    <button class="back-btn" onclick="showView('order')" data-t="back">← Back</button>
+    <h1>IMO Bar</h1>
+    <div id="menuCategoryList"></div>
+    <div id="cartBar" class="hidden" onclick="openCart()" style="position:sticky; bottom:16px; margin-top:16px; background:var(--blue); color:#fff; border-radius:14px; padding:16px 20px; display:flex; justify-content:space-between; align-items:center; font-weight:700; cursor:pointer;">
+      <span id="cartBarCount"></span>
+      <span id="cartBarTotal"></span>
+    </div>
+  </div>
+
+  <!-- Items within a category -->
+  <div id="viewMenuItems" class="hidden">
+    <button class="back-btn" onclick="showView('menuCategories')" data-t="back">← Back</button>
+    <h1 id="menuItemsTitle"></h1>
+    <div id="menuItemsList"></div>
+    <div id="cartBar2" class="hidden" onclick="openCart()" style="position:sticky; bottom:16px; margin-top:16px; background:var(--blue); color:#fff; border-radius:14px; padding:16px 20px; display:flex; justify-content:space-between; align-items:center; font-weight:700; cursor:pointer;">
+      <span id="cartBarCount2"></span>
+      <span id="cartBarTotal2"></span>
+    </div>
+  </div>
+
+  <!-- Cart / checkout -->
+  <div id="viewCart" class="hidden">
+    <button class="back-btn" onclick="showView('menuCategories')" data-t="back">← Back</button>
+    <h1 data-t="yourOrder">Your Order</h1>
+    <div id="cartList"></div>
+    <div id="cartEmpty" class="hidden" style="color:var(--muted); font-size:14px; padding:20px 0;" data-t="cartEmpty">Your cart is empty.</div>
+    <div id="cartTotals" class="hidden" style="margin-top:16px; padding-top:16px; border-top:1px solid var(--line); font-size:14px;">
+      <div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span data-t="subtotal">Subtotal</span><span id="cartSubtotal"></span></div>
+      <div style="display:flex; justify-content:space-between; margin-bottom:4px; color:var(--muted);"><span data-t="vat">VAT (12%)</span><span id="cartVat"></span></div>
+      <div style="display:flex; justify-content:space-between; margin-bottom:10px; color:var(--muted);"><span data-t="serviceCharge">Service Charge (10%)</span><span id="cartSc"></span></div>
+      <div style="display:flex; justify-content:space-between; font-weight:800; font-size:17px; padding-top:10px; border-top:1px solid var(--line);"><span data-t="total">Total</span><span id="cartTotal"></span></div>
+    </div>
+    <div id="cartNotesBox" class="hidden field">
+      <label data-t="orderNotesLabel">Notes (optional)</label>
+      <textarea id="cartNotes" rows="2" data-t-placeholder="orderNotesPlaceholder" placeholder="Any special requests? (optional)" style="width:100%; padding:12px; border:1px solid var(--line); border-radius:10px; font-size:14px; font-family:var(--sans); resize:vertical;"></textarea>
+    </div>
+    <button type="button" id="placeOrderBtn" class="primary-btn hidden" onclick="placeOrder()" data-t="placeOrder">Place Order</button>
+    <p id="payNote" class="hidden" style="font-size:12px; color:var(--muted); text-align:center; margin-top:10px;" data-t="payOnDelivery">Payment is collected by our team upon delivery.</p>
+  </div>
+
+  <!-- Order confirmed -->
+  <div id="viewOrderConfirm" class="hidden confirm">
+    <div class="e">🍽️</div>
+    <h2 data-t="orderConfirmTitle">Order placed!</h2>
+    <p data-t="orderConfirmBody">Our team has been notified and will bring your order shortly. Payment is collected on delivery.</p>
+    <button type="button" class="primary-btn" onclick="showView('main')" data-t="back">← Back</button>
   </div>
 
   <!-- Coming soon -->
@@ -249,11 +300,11 @@ const SUPABASE_ANON_KEY = 'sb_publishable_s-Xj4wDiOuN6kSyWklAqBg_6n4On3Iv';
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const T = {
-  en: { chooseLanguage:'Choose your language', changeLanguage:'Change language', requestSomething:'Request Something', orderFoodDrinks:'Order Food & Drinks', housekeeping:'Housekeeping', maintenance:'Maintenance', reception:'Reception', luggage:'Luggage Assistance', transportation:'Transportation', peopleLabel:'Number of people', vehicleLabel:'Vehicle', sedan:'Sedan', van:'Van', back:'← Back', confirmTitle:'Request sent!', confirmBody:'Our team has been notified and will assist you shortly.', comingSoonTitle:'Menu coming soon', comingSoonBody:"Please ask our staff for today's menu in the meantime.", enterPin:'Enter your room PIN', pinHint:"Ask our staff if you don't have it yet.", enter:'Enter', pinError:"That PIN wasn't recognized, or your stay may have ended — please check with reception.", pinLocked:'Too many tries — please wait a few minutes and ask reception if you need help.', otherMessage:'Other / Message', typeMessage:'Type your message...', send:'Send', myRequests:'My Requests', myRequestsSub:'Check status, chat with reception', statusRejected:'Declined', statusPending:'Pending', statusInProgress:'In Progress', statusCompleted:'Completed', feedbackPrompt:'Are you satisfied with how this was handled?', feedbackNotePlaceholder:'Anything to add? (optional)', noRequests:"You haven't sent any requests yet.", whenLabel:'When?', emergencyButton:'Emergency Assistance', emergencyConfirmTitle:'Alert Reception & Security now?', emergencyConfirmBody:'This will immediately notify our team that you need help.', emergencyConfirmYes:'Yes, alert them now', emergencyConfirmNo:'Cancel', emergencySentTitle:'Help is on the way', emergencySentBody:'Reception and Security have been notified and are responding now.', quantityLabel:'How many?', quantityOther:'Other (type amount)', cancelRequest:'Cancel Request', statusCancelled:'Cancelled', emergencyRemarksPlaceholder:"Optional: what's happening? (you can skip this)", notesLabel:'Notes (optional)', notesPlaceholder:'Anything specific? (optional)' },
-  fil: { chooseLanguage:'Piliin ang wika', changeLanguage:'Palitan ang wika', requestSomething:'Humiling ng Serbisyo', orderFoodDrinks:'Mag-order ng Pagkain at Inumin', housekeeping:'Housekeeping', maintenance:'Maintenance', reception:'Reception', luggage:'Tulong sa Bagahe', transportation:'Transportasyon', peopleLabel:'Ilang katao', vehicleLabel:'Sasakyan', sedan:'Sedan', van:'Van', back:'← Bumalik', confirmTitle:'Naipadala na ang iyong hiling!', confirmBody:'Naabisuhan na ang aming team at sila ay tutulong sa iyo sa lalong madaling panahon.', comingSoonTitle:'Malapit nang available ang menu', comingSoonBody:'Pakitanong na lang sa aming staff ang menu ngayong araw.', enterPin:'Ilagay ang PIN ng inyong kwarto', pinHint:'Tanungin ang aming staff kung wala pa kayong PIN.', enter:'Ipasok', pinError:'Hindi nakilala ang PIN na iyon, o maaaring tapos na ang inyong stay — pakitanong sa reception.', pinLocked:'Sobra na ang subok — maghintay ng ilang minuto o tanungin ang reception kung kailangan ng tulong.', otherMessage:'Iba pa / Mensahe', typeMessage:'I-type ang inyong mensahe...', send:'Ipadala', myRequests:'Aking mga Kahilingan', myRequestsSub:'Tingnan ang status, makipag-usap sa reception', statusRejected:'Hindi Naaprubahan', statusPending:'Naghihintay', statusInProgress:'Ginagawa Na', statusCompleted:'Tapos Na', feedbackPrompt:'Nasiyahan ba kayo sa paghawak nito?', feedbackNotePlaceholder:'May idadagdag pa? (opsyonal)', noRequests:'Wala pa kayong naipadalang hiling.', whenLabel:'Kailan?', emergencyButton:'Tulong Pang-emergency', emergencyConfirmTitle:'Alertuhan na ang Reception at Security?', emergencyConfirmBody:'Agad na maaabisuhan ang aming team na kailangan ninyo ng tulong.', emergencyConfirmYes:'Oo, alertuhan na sila', emergencyConfirmNo:'Kanselahin', emergencySentTitle:'Paparating na ang tulong', emergencySentBody:'Naabisuhan na ang Reception at Security at tumutugon na sila.', quantityLabel:'Ilan?', quantityOther:'Iba pa (i-type ang bilang)', cancelRequest:'Kanselahin ang Hiling', statusCancelled:'Kinansela', emergencyRemarksPlaceholder:'Opsyonal: ano po ang nangyayari? (pwede ring laktawan)', notesLabel:'Mga Tala (opsyonal)', notesPlaceholder:'May partikular ba? (opsyonal)' },
-  ko: { chooseLanguage:'언어를 선택하세요', changeLanguage:'언어 변경', requestSomething:'서비스 요청', orderFoodDrinks:'음식 및 음료 주문', housekeeping:'하우스키핑', maintenance:'유지보수', reception:'리셉션', luggage:'짐 도움 요청', transportation:'교통편', peopleLabel:'인원 수', vehicleLabel:'차량', sedan:'세단', van:'밴', back:'← 뒤로', confirmTitle:'요청이 전송되었습니다!', confirmBody:'저희 팀에게 알림이 전달되었으며 곧 도와드리겠습니다.', comingSoonTitle:'메뉴 준비 중', comingSoonBody:'오늘의 메뉴는 저희 직원에게 문의해 주세요.', enterPin:'객실 PIN을 입력하세요', pinHint:'PIN이 없으시면 직원에게 문의해 주세요.', enter:'입력', pinError:'PIN을 인식할 수 없거나 숙박 기간이 종료되었을 수 있습니다 — 리셉션에 문의해 주세요.', pinLocked:'시도 횟수가 너무 많습니다 — 몇 분 후 다시 시도하시거나 리셉션에 문의해 주세요.', otherMessage:'기타 / 메시지', typeMessage:'메시지를 입력하세요...', send:'보내기', myRequests:'내 요청', myRequestsSub:'상태 확인, 리셉션과 대화', statusRejected:'거절됨', statusPending:'대기 중', statusInProgress:'진행 중', statusCompleted:'완료됨', feedbackPrompt:'처리 결과에 만족하셨나요?', feedbackNotePlaceholder:'추가하실 내용이 있나요? (선택 사항)', noRequests:'아직 보낸 요청이 없습니다.', whenLabel:'언제?', emergencyButton:'긴급 도움 요청', emergencyConfirmTitle:'지금 리셉션과 보안팀에 알리시겠습니까?', emergencyConfirmBody:'도움이 필요하다는 것이 저희 팀에 즉시 전달됩니다.', emergencyConfirmYes:'예, 지금 알리기', emergencyConfirmNo:'취소', emergencySentTitle:'도움이 오고 있습니다', emergencySentBody:'리셉션과 보안팀에 알림이 전달되었으며 지금 대응 중입니다.', quantityLabel:'몇 개?', quantityOther:'기타 (숫자 입력)', cancelRequest:'요청 취소', statusCancelled:'취소됨', emergencyRemarksPlaceholder:'선택 사항: 무슨 일인가요? (건너뛰어도 됩니다)', notesLabel:'메모 (선택 사항)', notesPlaceholder:'구체적으로 알려주세요 (선택 사항)' },
-  ja: { chooseLanguage:'言語を選択してください', changeLanguage:'言語を変更', requestSomething:'サービスをリクエスト', orderFoodDrinks:'フード＆ドリンクを注文', housekeeping:'ハウスキーピング', maintenance:'メンテナンス', reception:'レセプション', luggage:'荷物のお手伝い', transportation:'送迎サービス', peopleLabel:'人数', vehicleLabel:'車両', sedan:'セダン', van:'バン', back:'← 戻る', confirmTitle:'リクエストを送信しました！', confirmBody:'スタッフに通知されました。まもなく対応いたします。', comingSoonTitle:'メニュー準備中', comingSoonBody:'本日のメニューはスタッフにお尋ねください。', enterPin:'客室のPINを入力してください', pinHint:'PINをお持ちでない場合はスタッフにお尋ねください。', enter:'入力', pinError:'PINが認識されませんでした。ご滞在が終了している可能性もあります — レセプションにお問い合わせください。', pinLocked:'試行回数が多すぎます — 数分お待ちいただくか、レセプションにお問い合わせください。', otherMessage:'その他 / メッセージ', typeMessage:'メッセージを入力してください...', send:'送信', myRequests:'マイリクエスト', myRequestsSub:'状況確認、レセプションとチャット', statusRejected:'対応不可', statusPending:'保留中', statusInProgress:'対応中', statusCompleted:'完了', feedbackPrompt:'対応にご満足いただけましたか？', feedbackNotePlaceholder:'その他ご意見があれば（任意）', noRequests:'まだリクエストがありません。', whenLabel:'いつ？', emergencyButton:'緊急支援', emergencyConfirmTitle:'今すぐレセプションとセキュリティに通知しますか？', emergencyConfirmBody:'スタッフにすぐに助けが必要であることが通知されます。', emergencyConfirmYes:'はい、今すぐ通知する', emergencyConfirmNo:'キャンセル', emergencySentTitle:'スタッフが向かっています', emergencySentBody:'レセプションとセキュリティに通知され、現在対応中です。', quantityLabel:'いくつ？', quantityOther:'その他（数を入力）', cancelRequest:'リクエストをキャンセル', statusCancelled:'キャンセル済み', emergencyRemarksPlaceholder:'任意：状況を教えてください（省略可）', notesLabel:'メモ（任意）', notesPlaceholder:'具体的なご要望があれば（任意）' },
-  zh: { chooseLanguage:'请选择语言', changeLanguage:'更改语言', requestSomething:'请求服务', orderFoodDrinks:'点餐和饮品', housekeeping:'客房服务', maintenance:'维修服务', reception:'前台', luggage:'行李协助', transportation:'用车服务', peopleLabel:'人数', vehicleLabel:'车型', sedan:'轿车', van:'商务车', back:'← 返回', confirmTitle:'请求已发送！', confirmBody:'我们的团队已收到通知，将尽快为您提供帮助。', comingSoonTitle:'菜单即将上线', comingSoonBody:'请向我们的工作人员询问今日菜单。', enterPin:'请输入您的房间PIN码', pinHint:'如果还没有PIN码，请询问我们的工作人员。', enter:'确认', pinError:'该PIN码无法识别，或您的入住可能已结束 — 请咨询前台。', pinLocked:'尝试次数过多 — 请稍等几分钟，或联系前台寻求帮助。', otherMessage:'其他 / 留言', typeMessage:'请输入您的留言...', send:'发送', myRequests:'我的请求', myRequestsSub:'查看状态，与前台聊天', statusRejected:'已拒绝', statusPending:'待处理', statusInProgress:'处理中', statusCompleted:'已完成', feedbackPrompt:'您对处理结果满意吗？', feedbackNotePlaceholder:'还有什么想说的吗？（可选）', noRequests:'您还没有发送任何请求。', whenLabel:'什么时候？', emergencyButton:'紧急援助', emergencyConfirmTitle:'现在通知前台和保安吗？', emergencyConfirmBody:'我们的团队将立即收到您需要帮助的通知。', emergencyConfirmYes:'是的，立即通知', emergencyConfirmNo:'取消', emergencySentTitle:'帮助即将到达', emergencySentBody:'前台和保安已收到通知，正在处理中。', quantityLabel:'需要几个？', quantityOther:'其他（输入数量）', cancelRequest:'取消请求', statusCancelled:'已取消', emergencyRemarksPlaceholder:'可选：发生了什么？（可跳过）', notesLabel:'备注（可选）', notesPlaceholder:'有什么特别要求吗？（可选）' }
+  en: { chooseLanguage:'Choose your language', changeLanguage:'Change language', requestSomething:'Request Something', orderFoodDrinks:'Order Food & Drinks', housekeeping:'Housekeeping', maintenance:'Maintenance', reception:'Reception', luggage:'Luggage Assistance', transportation:'Transportation', peopleLabel:'Number of people', vehicleLabel:'Vehicle', sedan:'Sedan', van:'Van', back:'← Back', confirmTitle:'Request sent!', confirmBody:'Our team has been notified and will assist you shortly.', comingSoonTitle:'Menu coming soon', comingSoonBody:"Please ask our staff for today's menu in the meantime.", enterPin:'Enter your room PIN', pinHint:"Ask our staff if you don't have it yet.", enter:'Enter', pinError:"That PIN wasn't recognized, or your stay may have ended — please check with reception.", pinLocked:'Too many tries — please wait a few minutes and ask reception if you need help.', otherMessage:'Other / Message', typeMessage:'Type your message...', send:'Send', myRequests:'My Requests', myRequestsSub:'Check status, chat with reception', statusRejected:'Declined', statusPending:'Pending', statusInProgress:'In Progress', statusCompleted:'Completed', feedbackPrompt:'Are you satisfied with how this was handled?', feedbackNotePlaceholder:'Anything to add? (optional)', noRequests:"You haven't sent any requests yet.", whenLabel:'When?', emergencyButton:'Emergency Assistance', emergencyConfirmTitle:'Alert Reception & Security now?', emergencyConfirmBody:'This will immediately notify our team that you need help.', emergencyConfirmYes:'Yes, alert them now', emergencyConfirmNo:'Cancel', emergencySentTitle:'Help is on the way', emergencySentBody:'Reception and Security have been notified and are responding now.', quantityLabel:'How many?', quantityOther:'Other (type amount)', cancelRequest:'Cancel Request', statusCancelled:'Cancelled', emergencyRemarksPlaceholder:"Optional: what's happening? (you can skip this)", notesLabel:'Notes (optional)', notesPlaceholder:'Anything specific? (optional)', yourOrder:'Your Order', cartEmpty:'Your cart is empty.', subtotal:'Subtotal', vat:'VAT (12%)', serviceCharge:'Service Charge (10%)', total:'Total', orderNotesLabel:'Notes (optional)', orderNotesPlaceholder:'Any special requests? (optional)', placeOrder:'Place Order', payOnDelivery:'Payment is collected by our team upon delivery.', orderConfirmTitle:'Order placed!', orderConfirmBody:'Our team has been notified and will bring your order shortly. Payment is collected on delivery.' },
+  fil: { chooseLanguage:'Piliin ang wika', changeLanguage:'Palitan ang wika', requestSomething:'Humiling ng Serbisyo', orderFoodDrinks:'Mag-order ng Pagkain at Inumin', housekeeping:'Housekeeping', maintenance:'Maintenance', reception:'Reception', luggage:'Tulong sa Bagahe', transportation:'Transportasyon', peopleLabel:'Ilang katao', vehicleLabel:'Sasakyan', sedan:'Sedan', van:'Van', back:'← Bumalik', confirmTitle:'Naipadala na ang iyong hiling!', confirmBody:'Naabisuhan na ang aming team at sila ay tutulong sa iyo sa lalong madaling panahon.', comingSoonTitle:'Malapit nang available ang menu', comingSoonBody:'Pakitanong na lang sa aming staff ang menu ngayong araw.', enterPin:'Ilagay ang PIN ng inyong kwarto', pinHint:'Tanungin ang aming staff kung wala pa kayong PIN.', enter:'Ipasok', pinError:'Hindi nakilala ang PIN na iyon, o maaaring tapos na ang inyong stay — pakitanong sa reception.', pinLocked:'Sobra na ang subok — maghintay ng ilang minuto o tanungin ang reception kung kailangan ng tulong.', otherMessage:'Iba pa / Mensahe', typeMessage:'I-type ang inyong mensahe...', send:'Ipadala', myRequests:'Aking mga Kahilingan', myRequestsSub:'Tingnan ang status, makipag-usap sa reception', statusRejected:'Hindi Naaprubahan', statusPending:'Naghihintay', statusInProgress:'Ginagawa Na', statusCompleted:'Tapos Na', feedbackPrompt:'Nasiyahan ba kayo sa paghawak nito?', feedbackNotePlaceholder:'May idadagdag pa? (opsyonal)', noRequests:'Wala pa kayong naipadalang hiling.', whenLabel:'Kailan?', emergencyButton:'Tulong Pang-emergency', emergencyConfirmTitle:'Alertuhan na ang Reception at Security?', emergencyConfirmBody:'Agad na maaabisuhan ang aming team na kailangan ninyo ng tulong.', emergencyConfirmYes:'Oo, alertuhan na sila', emergencyConfirmNo:'Kanselahin', emergencySentTitle:'Paparating na ang tulong', emergencySentBody:'Naabisuhan na ang Reception at Security at tumutugon na sila.', quantityLabel:'Ilan?', quantityOther:'Iba pa (i-type ang bilang)', cancelRequest:'Kanselahin ang Hiling', statusCancelled:'Kinansela', emergencyRemarksPlaceholder:'Opsyonal: ano po ang nangyayari? (pwede ring laktawan)', notesLabel:'Mga Tala (opsyonal)', notesPlaceholder:'May partikular ba? (opsyonal)', yourOrder:'Ang Inyong Order', cartEmpty:'Wala pang laman ang inyong cart.', subtotal:'Subtotal', vat:'VAT (12%)', serviceCharge:'Service Charge (10%)', total:'Kabuuan', orderNotesLabel:'Mga Tala (opsyonal)', orderNotesPlaceholder:'May partikular bang kailangan? (opsyonal)', placeOrder:'Ipadala ang Order', payOnDelivery:'Babayaran sa aming staff sa oras ng paghatid.', orderConfirmTitle:'Naipadala na ang order!', orderConfirmBody:'Naabisuhan na ang aming team at dadalhin nila ang inyong order. Babayaran ito sa paghatid.' },
+  ko: { chooseLanguage:'언어를 선택하세요', changeLanguage:'언어 변경', requestSomething:'서비스 요청', orderFoodDrinks:'음식 및 음료 주문', housekeeping:'하우스키핑', maintenance:'유지보수', reception:'리셉션', luggage:'짐 도움 요청', transportation:'교통편', peopleLabel:'인원 수', vehicleLabel:'차량', sedan:'세단', van:'밴', back:'← 뒤로', confirmTitle:'요청이 전송되었습니다!', confirmBody:'저희 팀에게 알림이 전달되었으며 곧 도와드리겠습니다.', comingSoonTitle:'메뉴 준비 중', comingSoonBody:'오늘의 메뉴는 저희 직원에게 문의해 주세요.', enterPin:'객실 PIN을 입력하세요', pinHint:'PIN이 없으시면 직원에게 문의해 주세요.', enter:'입력', pinError:'PIN을 인식할 수 없거나 숙박 기간이 종료되었을 수 있습니다 — 리셉션에 문의해 주세요.', pinLocked:'시도 횟수가 너무 많습니다 — 몇 분 후 다시 시도하시거나 리셉션에 문의해 주세요.', otherMessage:'기타 / 메시지', typeMessage:'메시지를 입력하세요...', send:'보내기', myRequests:'내 요청', myRequestsSub:'상태 확인, 리셉션과 대화', statusRejected:'거절됨', statusPending:'대기 중', statusInProgress:'진행 중', statusCompleted:'완료됨', feedbackPrompt:'처리 결과에 만족하셨나요?', feedbackNotePlaceholder:'추가하실 내용이 있나요? (선택 사항)', noRequests:'아직 보낸 요청이 없습니다.', whenLabel:'언제?', emergencyButton:'긴급 도움 요청', emergencyConfirmTitle:'지금 리셉션과 보안팀에 알리시겠습니까?', emergencyConfirmBody:'도움이 필요하다는 것이 저희 팀에 즉시 전달됩니다.', emergencyConfirmYes:'예, 지금 알리기', emergencyConfirmNo:'취소', emergencySentTitle:'도움이 오고 있습니다', emergencySentBody:'리셉션과 보안팀에 알림이 전달되었으며 지금 대응 중입니다.', quantityLabel:'몇 개?', quantityOther:'기타 (숫자 입력)', cancelRequest:'요청 취소', statusCancelled:'취소됨', emergencyRemarksPlaceholder:'선택 사항: 무슨 일인가요? (건너뛰어도 됩니다)', notesLabel:'메모 (선택 사항)', notesPlaceholder:'구체적으로 알려주세요 (선택 사항)', yourOrder:'주문 내역', cartEmpty:'장바구니가 비어 있습니다.', subtotal:'소계', vat:'부가세 (12%)', serviceCharge:'봉사료 (10%)', total:'합계', orderNotesLabel:'메모 (선택 사항)', orderNotesPlaceholder:'요청사항이 있으신가요? (선택 사항)', placeOrder:'주문하기', payOnDelivery:'결제는 배달 시 저희 직원에게 하시면 됩니다.', orderConfirmTitle:'주문이 완료되었습니다!', orderConfirmBody:'저희 팀에게 알림이 전달되었으며 곧 주문하신 음식을 가져다드리겠습니다. 결제는 배달 시 진행됩니다.' },
+  ja: { chooseLanguage:'言語を選択してください', changeLanguage:'言語を変更', requestSomething:'サービスをリクエスト', orderFoodDrinks:'フード＆ドリンクを注文', housekeeping:'ハウスキーピング', maintenance:'メンテナンス', reception:'レセプション', luggage:'荷物のお手伝い', transportation:'送迎サービス', peopleLabel:'人数', vehicleLabel:'車両', sedan:'セダン', van:'バン', back:'← 戻る', confirmTitle:'リクエストを送信しました！', confirmBody:'スタッフに通知されました。まもなく対応いたします。', comingSoonTitle:'メニュー準備中', comingSoonBody:'本日のメニューはスタッフにお尋ねください。', enterPin:'客室のPINを入力してください', pinHint:'PINをお持ちでない場合はスタッフにお尋ねください。', enter:'入力', pinError:'PINが認識されませんでした。ご滞在が終了している可能性もあります — レセプションにお問い合わせください。', pinLocked:'試行回数が多すぎます — 数分お待ちいただくか、レセプションにお問い合わせください。', otherMessage:'その他 / メッセージ', typeMessage:'メッセージを入力してください...', send:'送信', myRequests:'マイリクエスト', myRequestsSub:'状況確認、レセプションとチャット', statusRejected:'対応不可', statusPending:'保留中', statusInProgress:'対応中', statusCompleted:'完了', feedbackPrompt:'対応にご満足いただけましたか？', feedbackNotePlaceholder:'その他ご意見があれば（任意）', noRequests:'まだリクエストがありません。', whenLabel:'いつ？', emergencyButton:'緊急支援', emergencyConfirmTitle:'今すぐレセプションとセキュリティに通知しますか？', emergencyConfirmBody:'スタッフにすぐに助けが必要であることが通知されます。', emergencyConfirmYes:'はい、今すぐ通知する', emergencyConfirmNo:'キャンセル', emergencySentTitle:'スタッフが向かっています', emergencySentBody:'レセプションとセキュリティに通知され、現在対応中です。', quantityLabel:'いくつ？', quantityOther:'その他（数を入力）', cancelRequest:'リクエストをキャンセル', statusCancelled:'キャンセル済み', emergencyRemarksPlaceholder:'任意：状況を教えてください（省略可）', notesLabel:'メモ（任意）', notesPlaceholder:'具体的なご要望があれば（任意）', yourOrder:'ご注文内容', cartEmpty:'カートは空です。', subtotal:'小計', vat:'VAT（12%）', serviceCharge:'サービス料（10%）', total:'合計', orderNotesLabel:'メモ（任意）', orderNotesPlaceholder:'ご要望があれば（任意）', placeOrder:'注文する', payOnDelivery:'お支払いはスタッフがお届けする際にお願いいたします。', orderConfirmTitle:'ご注文を承りました！', orderConfirmBody:'スタッフに通知されました。まもなくお届けいたします。お支払いはお届け時にお願いいたします。' },
+  zh: { chooseLanguage:'请选择语言', changeLanguage:'更改语言', requestSomething:'请求服务', orderFoodDrinks:'点餐和饮品', housekeeping:'客房服务', maintenance:'维修服务', reception:'前台', luggage:'行李协助', transportation:'用车服务', peopleLabel:'人数', vehicleLabel:'车型', sedan:'轿车', van:'商务车', back:'← 返回', confirmTitle:'请求已发送！', confirmBody:'我们的团队已收到通知，将尽快为您提供帮助。', comingSoonTitle:'菜单即将上线', comingSoonBody:'请向我们的工作人员询问今日菜单。', enterPin:'请输入您的房间PIN码', pinHint:'如果还没有PIN码，请询问我们的工作人员。', enter:'确认', pinError:'该PIN码无法识别，或您的入住可能已结束 — 请咨询前台。', pinLocked:'尝试次数过多 — 请稍等几分钟，或联系前台寻求帮助。', otherMessage:'其他 / 留言', typeMessage:'请输入您的留言...', send:'发送', myRequests:'我的请求', myRequestsSub:'查看状态，与前台聊天', statusRejected:'已拒绝', statusPending:'待处理', statusInProgress:'处理中', statusCompleted:'已完成', feedbackPrompt:'您对处理结果满意吗？', feedbackNotePlaceholder:'还有什么想说的吗？（可选）', noRequests:'您还没有发送任何请求。', whenLabel:'什么时候？', emergencyButton:'紧急援助', emergencyConfirmTitle:'现在通知前台和保安吗？', emergencyConfirmBody:'我们的团队将立即收到您需要帮助的通知。', emergencyConfirmYes:'是的，立即通知', emergencyConfirmNo:'取消', emergencySentTitle:'帮助即将到达', emergencySentBody:'前台和保安已收到通知，正在处理中。', quantityLabel:'需要几个？', quantityOther:'其他（输入数量）', cancelRequest:'取消请求', statusCancelled:'已取消', emergencyRemarksPlaceholder:'可选：发生了什么？（可跳过）', notesLabel:'备注（可选）', notesPlaceholder:'有什么特别要求吗？（可选）', yourOrder:'您的订单', cartEmpty:'购物车是空的。', subtotal:'小计', vat:'增值税 (12%)', serviceCharge:'服务费 (10%)', total:'总计', orderNotesLabel:'备注（可选）', orderNotesPlaceholder:'有什么特别要求吗？（可选）', placeOrder:'下单', payOnDelivery:'送达时由我们的工作人员收取费用。', orderConfirmTitle:'订单已提交！', orderConfirmBody:'我们的团队已收到通知，将尽快为您送餐。费用将在送达时收取。' }
 };
 
 let lang = 'en';
@@ -331,7 +382,7 @@ function applyTranslations(){
 }
 
 window.showView = function(name){
-  ['lang','pin','main','request','subcat','otherMessage','order','confirm','comingSoon','myRequests','requestDetail','timedRequest','qtyRequest','transportRequest','emergencyConfirm','emergencySent'].forEach(v => {
+  ['lang','pin','main','request','subcat','otherMessage','order','confirm','comingSoon','myRequests','requestDetail','timedRequest','qtyRequest','transportRequest','emergencyConfirm','emergencySent','menuCategories','menuItems','cart','orderConfirm'].forEach(v => {
     document.getElementById('view' + v.charAt(0).toUpperCase() + v.slice(1)).classList.add('hidden');
   });
   document.getElementById('view' + name.charAt(0).toUpperCase() + name.slice(1)).classList.remove('hidden');
@@ -355,6 +406,142 @@ if (sessionId){
 }
 
 window.showComingSoon = function(){ showView('comingSoon'); };
+
+/* ---------------- Menu browsing + cart ---------------- */
+let menuItemsData = [];
+let cart = {}; // menu_item_id -> {name, price, qty}
+
+async function loadMenuIfNeeded(){
+  if (menuItemsData.length) return;
+  const { data } = await supabase.from('menu_items').select('id,category,name,base_price,translations').eq('active', true).order('sort_order');
+  menuItemsData = data || [];
+}
+
+function itemLabel(item){
+  return (item.translations && item.translations[lang]) ? item.translations[lang] : item.name;
+}
+
+window.openMenuCategories = async function(){
+  await loadMenuIfNeeded();
+  const cats = [...new Set(menuItemsData.map(i => i.category))];
+  document.getElementById('menuCategoryList').innerHTML = cats.map(c => `
+    <div class="tile" onclick="openMenuItems('${c.replace(/'/g,"\\'")}')"><span class="e">🍽️</span><div class="t">${c}</div></div>
+  `).join('');
+  renderCartBar();
+  showView('menuCategories');
+};
+
+let currentMenuCategory = null;
+
+window.openMenuItems = function(category){
+  currentMenuCategory = category;
+  document.getElementById('menuItemsTitle').textContent = category;
+  renderMenuItemsList();
+  renderCartBar();
+  showView('menuItems');
+};
+
+function renderMenuItemsList(){
+  const items = menuItemsData.filter(i => i.category === currentMenuCategory);
+  document.getElementById('menuItemsList').innerHTML = items.map(item => {
+    const qty = cart[item.id]?.qty || 0;
+    return `
+    <div class="tile" style="cursor:default;">
+      <div style="flex:1;">
+        <div class="t">${itemLabel(item)}</div>
+        <div class="s">₱${item.base_price}</div>
+      </div>
+      <div style="display:flex; align-items:center; gap:10px;">
+        <button type="button" onclick="changeQty('${item.id}', -1)" style="width:32px; height:32px; border-radius:8px; border:1px solid var(--line); background:var(--surface); font-size:18px;">−</button>
+        <span style="min-width:16px; text-align:center; font-weight:700;">${qty}</span>
+        <button type="button" onclick="changeQty('${item.id}', 1)" style="width:32px; height:32px; border-radius:8px; border:1px solid var(--line); background:var(--surface); font-size:18px;">+</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+window.changeQty = function(itemId, delta){
+  const item = menuItemsData.find(i => i.id === itemId);
+  if (!item) return;
+  const current = cart[itemId]?.qty || 0;
+  const next = Math.max(0, current + delta);
+  if (next === 0) delete cart[itemId];
+  else cart[itemId] = { name: item.name, price: item.base_price, qty: next };
+  renderMenuItemsList();
+  renderCartBar();
+};
+
+function cartCount(){ return Object.values(cart).reduce((s,i)=>s+i.qty, 0); }
+function cartSubtotal(){ return Object.values(cart).reduce((s,i)=>s+i.price*i.qty, 0); }
+
+function renderCartBar(){
+  const n = cartCount();
+  const sub = cartSubtotal();
+  [['cartBar','cartBarCount','cartBarTotal'], ['cartBar2','cartBarCount2','cartBarTotal2']].forEach(([barId,countId,totalId])=>{
+    const bar = document.getElementById(barId);
+    if (!bar) return;
+    if (n > 0){
+      document.getElementById(countId).textContent = `🛒 ${n}`;
+      document.getElementById(totalId).textContent = `₱${sub}`;
+      bar.classList.remove('hidden');
+    } else {
+      bar.classList.add('hidden');
+    }
+  });
+}
+
+window.openCart = function(){
+  renderCart();
+  showView('cart');
+};
+
+function renderCart(){
+  const entries = Object.entries(cart);
+  document.getElementById('cartEmpty').classList.toggle('hidden', entries.length > 0);
+  document.getElementById('cartTotals').classList.toggle('hidden', entries.length === 0);
+  document.getElementById('cartNotesBox').classList.toggle('hidden', entries.length === 0);
+  document.getElementById('placeOrderBtn').classList.toggle('hidden', entries.length === 0);
+  document.getElementById('payNote').classList.toggle('hidden', entries.length === 0);
+
+  document.getElementById('cartList').innerHTML = entries.map(([id, i]) => `
+    <div class="tile" style="cursor:default;">
+      <div style="flex:1;">
+        <div class="t">${i.name}</div>
+        <div class="s">₱${i.price} × ${i.qty}</div>
+      </div>
+      <div style="display:flex; align-items:center; gap:10px;">
+        <button type="button" onclick="changeQty('${id}', -1); renderCart();" style="width:32px; height:32px; border-radius:8px; border:1px solid var(--line); background:var(--surface); font-size:18px;">−</button>
+        <span style="min-width:16px; text-align:center; font-weight:700;">${i.qty}</span>
+        <button type="button" onclick="changeQty('${id}', 1); renderCart();" style="width:32px; height:32px; border-radius:8px; border:1px solid var(--line); background:var(--surface); font-size:18px;">+</button>
+      </div>
+    </div>
+  `).join('');
+
+  const sub = cartSubtotal();
+  const vat = Math.round(sub * 0.12);
+  const sc = Math.round(sub * 0.10);
+  document.getElementById('cartSubtotal').textContent = `₱${sub}`;
+  document.getElementById('cartVat').textContent = `₱${vat}`;
+  document.getElementById('cartSc').textContent = `₱${sc}`;
+  document.getElementById('cartTotal').textContent = `₱${sub + vat + sc}`;
+}
+
+window.placeOrder = async function(){
+  const items = Object.entries(cart).map(([id, i]) => ({ menu_item_id: id, quantity: i.qty }));
+  if (!items.length) return;
+  const notes = document.getElementById('cartNotes').value.trim();
+  const { data: ok, error } = await supabase.rpc('submit_food_order', {
+    p_session_id: sessionId, p_items: items, p_notes: notes || null
+  });
+  if (error || !ok){
+    console.error('submit_food_order error:', error);
+    alert('Something went wrong placing your order — please try again or contact reception.');
+    return;
+  }
+  cart = {};
+  document.getElementById('cartNotes').value = '';
+  showView('orderConfirm');
+};
 
 let currentSubcatDept = null;
 const TIMED_CATEGORIES = ['Wake-up Call', 'Late Check-out Request'];
@@ -564,6 +751,22 @@ window.openRequestDetail = async function(caseId){
     replyBox.classList.remove('hidden');
   } else {
     replyBox.classList.add('hidden');
+  }
+
+  const orderBox = document.getElementById('detailOrderItems');
+  if (r.detail_type === 'F&B Order'){
+    const { data: items } = await supabase.rpc('get_order_items', { p_case_id: caseId, p_session_id: sessionId });
+    const rows = items || [];
+    const sub = rows.reduce((s,i)=>s+i.line_total, 0);
+    const vat = Math.round(sub * 0.12);
+    const sc = Math.round(sub * 0.10);
+    orderBox.innerHTML = rows.map(i => `<div style="display:flex; justify-content:space-between; padding:4px 0;"><span>${i.item_name} × ${i.quantity}</span><span>₱${i.line_total}</span></div>`).join('')
+      + `<div style="display:flex; justify-content:space-between; padding:4px 0; color:var(--muted); border-top:1px solid var(--line); margin-top:6px; padding-top:8px;"><span>${T[lang].vat}</span><span>₱${vat}</span></div>`
+      + `<div style="display:flex; justify-content:space-between; padding:4px 0; color:var(--muted);"><span>${T[lang].serviceCharge}</span><span>₱${sc}</span></div>`
+      + `<div style="display:flex; justify-content:space-between; padding:6px 0; font-weight:800;"><span>${T[lang].total}</span><span>₱${sub+vat+sc}</span></div>`;
+    orderBox.classList.remove('hidden');
+  } else {
+    orderBox.classList.add('hidden');
   }
 
   const isMessage = (r.detail_type === 'Guest Message');
