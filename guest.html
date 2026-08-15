@@ -220,14 +220,14 @@
   <div id="viewOrder" class="hidden">
     <button class="back-btn" onclick="showView('main')" data-t="back">← Back</button>
     <h1 data-t="orderFoodDrinks">Order Food &amp; Drinks</h1>
-    <div class="tile" onclick="openMenuCategories()"><span class="e">🍹</span><div class="t">IMO Bar</div></div>
-    <div class="tile" onclick="showComingSoon()"><span class="e">☕</span><div class="t">Coppa Café</div></div>
+    <div class="tile" onclick="openMenuCategories('Imo Bar')"><span class="e">🍹</span><div class="t">IMO Bar</div></div>
+    <div class="tile" onclick="openMenuCategories('Coppa Cafe')"><span class="e">☕</span><div class="t">Coppa Café</div></div>
   </div>
 
   <!-- Menu categories -->
   <div id="viewMenuCategories" class="hidden">
     <button class="back-btn" onclick="showView('order')" data-t="back">← Back</button>
-    <h1>IMO Bar</h1>
+    <h1 id="menuCategoriesTitle">IMO Bar</h1>
     <div id="menuCategoryList"></div>
     <div id="cartBar" class="hidden" onclick="openCart()" style="position:sticky; bottom:16px; margin-top:16px; background:var(--blue); color:#fff; border-radius:14px; padding:16px 20px; display:flex; justify-content:space-between; align-items:center; font-weight:700; cursor:pointer;">
       <span id="cartBarCount"></span>
@@ -418,7 +418,7 @@ let cart = {}; // menu_item_id -> {name, price, qty}
 
 async function loadMenuIfNeeded(){
   if (menuItemsData.length) return;
-  const { data } = await supabase.from('menu_items').select('id,category,name,base_price,translations').eq('active', true).order('sort_order');
+  const { data } = await supabase.from('menu_items').select('id,category,name,base_price,translations,outlet').eq('active', true).order('sort_order');
   menuItemsData = data || [];
 }
 
@@ -426,9 +426,19 @@ function itemLabel(item){
   return (item.translations && item.translations[lang]) ? item.translations[lang] : item.name;
 }
 
-window.openMenuCategories = async function(){
+let currentOutlet = 'Imo Bar';
+const OUTLET_TITLES = { 'Imo Bar': 'IMO Bar', 'Coppa Cafe': 'Coppa Café' };
+
+window.openMenuCategories = async function(outlet){
+  if (outlet && outlet !== currentOutlet && Object.keys(cart).length){
+    // Switching venues mid-order would mix two kitchens into one
+    // ticket -- simplest, clearest fix is a fresh cart per venue.
+    cart = {};
+  }
+  if (outlet) currentOutlet = outlet;
   await loadMenuIfNeeded();
-  const cats = [...new Set(menuItemsData.map(i => i.category))];
+  document.getElementById('menuCategoriesTitle').textContent = OUTLET_TITLES[currentOutlet] || currentOutlet;
+  const cats = [...new Set(menuItemsData.filter(i => i.outlet === currentOutlet).map(i => i.category))];
   document.getElementById('menuCategoryList').innerHTML = cats.map(c => `
     <div class="tile" onclick="openMenuItems('${c.replace(/'/g,"\\'")}')"><span class="e">🍽️</span><div class="t">${c}</div></div>
   `).join('');
@@ -447,7 +457,7 @@ window.openMenuItems = function(category){
 };
 
 function renderMenuItemsList(){
-  const items = menuItemsData.filter(i => i.category === currentMenuCategory);
+  const items = menuItemsData.filter(i => i.category === currentMenuCategory && i.outlet === currentOutlet);
   document.getElementById('menuItemsList').innerHTML = items.map(item => {
     const qty = cart[item.id]?.qty || 0;
     return `
@@ -536,7 +546,7 @@ window.placeOrder = async function(){
   if (!items.length) return;
   const notes = document.getElementById('cartNotes').value.trim();
   const { data: ok, error } = await supabase.rpc('submit_food_order', {
-    p_session_id: sessionId, p_items: items, p_notes: notes || null
+    p_session_id: sessionId, p_items: items, p_notes: notes || null, p_outlet: currentOutlet
   });
   if (error || !ok){
     console.error('submit_food_order error:', error);
