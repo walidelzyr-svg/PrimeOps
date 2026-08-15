@@ -1181,6 +1181,7 @@ function playAlertSound(urgent){
 }
 let HK_DEPT_ID = null;
 let FB_DEPT_ID = null;
+let CAFE_DEPT_ID = null;
 let reportState = { where:null, assetId:null, what:null, targetDeptId:null, guestReported:null, photo:null, photoUrl:null };
 let reportDeptChoices = [];
 let pendingVerifyCardId = null;
@@ -1340,6 +1341,8 @@ async function init(){
     if (dept) HK_DEPT_ID = dept.id;
     const { data: fbDept } = await supabase.from('departments').select('id').eq('code','FB').single();
     if (fbDept) FB_DEPT_ID = fbDept.id;
+    const { data: cafeDept } = await supabase.from('departments').select('id').eq('code','CAFE').single();
+    if (cafeDept) CAFE_DEPT_ID = cafeDept.id;
 
     // Reference/lookup data first, in parallel — nothing here depends on
     // anything else in this batch, so no reason to wait on each one in turn
@@ -2030,7 +2033,7 @@ function render(){
     ${sumCard(s.verify,'To Verify','verify')}
     ${sumCard(s.done,'Done Today','done')}
     ${currentMember?.department_id === FB_DEPT_ID ? sumCard(s.fbOrders,'Active Imo Bar Orders','fb_orders') : ''}
-    ${currentMember?.department_id === FB_DEPT_ID ? sumCard(s.fbOrdersCoppa,'Active Coppa Café Orders','fb_orders_coppa') : ''}
+    ${currentMember?.department_id === CAFE_DEPT_ID ? sumCard(s.fbOrdersCoppa,'Active Coppa Café Orders','fb_orders_coppa') : ''}
   `;
 
   document.getElementById('historyList').innerHTML =
