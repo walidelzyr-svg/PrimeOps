@@ -1962,6 +1962,7 @@ const GM_STATS = [
   {key:'total_open', e:'📋', l:'Total Open', filter:c=>c.status!=='completed' && c.status!=='rejected' && c.status!=='cancelled'},
   {key:'fb_orders_visible', e:'🍹', l:'Active Imo Bar Orders', filter:c=>c.detail_type==='F&B Order' && c.outlet==='Imo Bar' && c.status!=='completed' && c.status!=='rejected' && c.status!=='cancelled'},
   {key:'fb_orders_coppa_visible', e:'☕', l:'Active Coppa Café Orders', filter:c=>c.detail_type==='F&B Order' && c.outlet==='Coppa Cafe' && c.status!=='completed' && c.status!=='rejected' && c.status!=='cancelled'},
+  {key:'guest_feedback_visible', e:'🗣️', l:'Guest Feedback', filter:c=>c.guest_satisfied !== null && c.guest_satisfied !== undefined},
   {key:'guest_requests', e:'📋', l:'Pending Guest Requests', hidden:true, filter:c=>c.guest_stay_id && c.detail_type!=='Guest Message' && c.status!=='completed' && c.status!=='rejected' && c.status!=='cancelled'},
   {key:'guest_messages', e:'💬', l:'Ongoing Messages', hidden:true, filter:c=>c.detail_type==='Guest Message' && c.status!=='completed' && c.status!=='rejected' && c.status!=='cancelled'}
 ];
@@ -1996,7 +1997,8 @@ function render(){
     verify: { title: 'Ready to Verify',    match: x => x.status === 'ready_verify' },
     done:   { title: 'Done Today',         match: x => x.status === 'completed' && isToday(x.verified_at) },
     fb_orders: { title: 'Active Imo Bar Guest Orders', match: x => x.detail_type === 'F&B Order' && x.outlet === 'Imo Bar' && x.status !== 'completed' && x.status !== 'rejected' && x.status !== 'cancelled' },
-    fb_orders_coppa: { title: 'Active Coppa Café Guest Orders', match: x => x.detail_type === 'F&B Order' && x.outlet === 'Coppa Cafe' && x.status !== 'completed' && x.status !== 'rejected' && x.status !== 'cancelled' }
+    fb_orders_coppa: { title: 'Active Coppa Café Guest Orders', match: x => x.detail_type === 'F&B Order' && x.outlet === 'Coppa Cafe' && x.status !== 'completed' && x.status !== 'rejected' && x.status !== 'cancelled' },
+    feedback: { title: 'Guest Feedback', match: x => x.guest_satisfied !== null && x.guest_satisfied !== undefined }
   };
   const f = staffFilter ? filters[staffFilter] : null;
   const shown = f ? cases.filter(f.match) : active;
@@ -2025,7 +2027,8 @@ function render(){
     verify: cases.filter(c=>c.status==='ready_verify').length,
     done: cases.filter(c=>c.status==='completed' && isToday(c.verified_at)).length,
     fbOrders: cases.filter(c=>c.detail_type==='F&B Order' && c.outlet==='Imo Bar' && c.status!=='completed' && c.status!=='rejected' && c.status!=='cancelled').length,
-    fbOrdersCoppa: cases.filter(c=>c.detail_type==='F&B Order' && c.outlet==='Coppa Cafe' && c.status!=='completed' && c.status!=='rejected' && c.status!=='cancelled').length
+    fbOrdersCoppa: cases.filter(c=>c.detail_type==='F&B Order' && c.outlet==='Coppa Cafe' && c.status!=='completed' && c.status!=='rejected' && c.status!=='cancelled').length,
+    feedback: cases.filter(c=>c.guest_satisfied !== null && c.guest_satisfied !== undefined).length
   };
   document.getElementById('summaryRow').innerHTML = `
     ${sumCard(s.today,'Today','today')}
@@ -2034,6 +2037,7 @@ function render(){
     ${sumCard(s.done,'Done Today','done')}
     ${currentMember?.department_id === FB_DEPT_ID ? sumCard(s.fbOrders,'Active Imo Bar Orders','fb_orders') : ''}
     ${currentMember?.department_id === CAFE_DEPT_ID ? sumCard(s.fbOrdersCoppa,'Active Coppa Café Orders','fb_orders_coppa') : ''}
+    ${sumCard(s.feedback,'Guest Feedback','feedback')}
   `;
 
   document.getElementById('historyList').innerHTML =
@@ -2244,7 +2248,7 @@ function sumCard(n,l,key){
 function selectSummary(key){
   if (hasHotelView()){
     // GM/admin: jump the Hotel Health view to the matching stat
-    const map = { today:'total_open', waiting:'waiting', verify:'ready_verify', done:'completed_today', fb_orders:'fb_orders_visible', fb_orders_coppa:'fb_orders_coppa_visible' };
+    const map = { today:'total_open', waiting:'waiting', verify:'ready_verify', done:'completed_today', fb_orders:'fb_orders_visible', fb_orders_coppa:'fb_orders_coppa_visible', feedback:'guest_feedback_visible' };
     gmActiveFilter = (gmActiveFilter===map[key]) ? null : map[key];
     render();
     return;
