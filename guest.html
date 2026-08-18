@@ -426,6 +426,44 @@ function itemLabel(item){
   return (item.translations && item.translations[lang]) ? item.translations[lang] : item.name;
 }
 
+const CATEGORY_TRANSLATIONS = {
+  'Beer': {fil:'Beer', ko:'맥주', ja:'ビール', zh:'啤酒'},
+  'Breakfast': {fil:'Almusal', ko:'아침 식사', ja:'朝食', zh:'早餐'},
+  'Burgers And Sandwiches': {fil:'Burger at Sandwich', ko:'버거 & 샌드위치', ja:'バーガー＆サンドイッチ', zh:'汉堡与三明治'},
+  'Chinese Menu': {fil:'Chinese Menu', ko:'중식 메뉴', ja:'中華メニュー', zh:'中式菜单'},
+  'Dessert': {fil:'Panghimagas', ko:'디저트', ja:'デザート', zh:'甜点'},
+  'Extra Charge': {fil:'Karagdagang Bayad', ko:'추가 요금 항목', ja:'追加料金', zh:'附加项目'},
+  'Filipino Menu': {fil:'Lutong Filipino', ko:'필리핀 메뉴', ja:'フィリピン料理', zh:'菲律宾菜单'},
+  'Hot Drinks': {fil:'Mainit na Inumin', ko:'따뜻한 음료', ja:'ホットドリンク', zh:'热饮'},
+  'Japanese Menu': {fil:'Japanese Menu', ko:'일식 메뉴', ja:'和食メニュー', zh:'日式菜单'},
+  'Kids Menu': {fil:'Menu Para sa Bata', ko:'어린이 메뉴', ja:'キッズメニュー', zh:'儿童菜单'},
+  'Korean Menu': {fil:'Korean Menu', ko:'한식 메뉴', ja:'韓国料理', zh:'韩式菜单'},
+  'Main Course': {fil:'Pangunahing Ulam', ko:'메인 요리', ja:'メインコース', zh:'主菜'},
+  'Maki N Rolls': {fil:'Maki at Rolls', ko:'마키 & 롤', ja:'巻き寿司＆ロール', zh:'寿司卷'},
+  'Middle Eastern Menu': {fil:'Middle Eastern Menu', ko:'중동 메뉴', ja:'中東料理', zh:'中东菜单'},
+  'Non alcoholic Drinks': {fil:'Walang Alak na Inumin', ko:'무알콜 음료', ja:'ノンアルコール飲料', zh:'无酒精饮料'},
+  'Pasta': {fil:'Pasta', ko:'파스타', ja:'パスタ', zh:'意面'},
+  'Pulutan': {fil:'Pulutan', ko:'안주', ja:'おつまみ', zh:'下酒菜'},
+  'Ramen And Ramyun': {fil:'Ramen at Ramyun', ko:'라멘 & 라면', ja:'ラーメン＆ラミョン', zh:'拉面与韩式拉面'},
+  'Salads': {fil:'Salad', ko:'샐러드', ja:'サラダ', zh:'沙拉'},
+  'Starters': {fil:'Pampagana', ko:'애피타이저', ja:'前菜', zh:'开胃菜'},
+  'Steak': {fil:'Steak', ko:'스테이크', ja:'ステーキ', zh:'牛排'},
+  'Bits And Bites': {fil:'Meryenda', ko:'스낵 & 베이커리', ja:'スナック＆焼き菓子', zh:'小食糕点'},
+  'Coffee Add on': {fil:'Karagdagan sa Kape', ko:'커피 추가 옵션', ja:'コーヒー追加オプション', zh:'咖啡加料'},
+  'Frappe': {fil:'Frappe', ko:'프라페', ja:'フラッペ', zh:'冰沙咖啡'},
+  'Hot Beverages': {fil:'Mainit na Inumin', ko:'따뜻한 음료', ja:'ホットビバレッジ', zh:'热饮'},
+  'Lemonade And Coolers': {fil:'Lemonade at Cooler', ko:'레모네이드 & 쿨러', ja:'レモネード＆クーラー', zh:'柠檬汁与冷饮'},
+  'Milk Tea': {fil:'Milk Tea', ko:'밀크티', ja:'ミルクティー', zh:'奶茶'},
+  'Over Ice': {fil:'Iced na Inumin', ko:'아이스 음료', ja:'アイスドリンク', zh:'冰饮'},
+  'Sauce Add on': {fil:'Karagdagang Sarsa', ko:'소스 추가 옵션', ja:'ソース追加オプション', zh:'酱料加料'},
+  'Smoothies': {fil:'Smoothies', ko:'스무디', ja:'スムージー', zh:'冰沙'},
+  'Syrup Add on': {fil:'Karagdagang Syrup', ko:'시럽 추가 옵션', ja:'シロップ追加オプション', zh:'糖浆加料'},
+  'Tea': {fil:'Tsaa', ko:'차', ja:'紅茶', zh:'茶'},
+};
+function categoryLabel(cat){
+  return (CATEGORY_TRANSLATIONS[cat] && CATEGORY_TRANSLATIONS[cat][lang]) ? CATEGORY_TRANSLATIONS[cat][lang] : cat;
+}
+
 let currentOutlet = 'Imo Bar';
 const OUTLET_TITLES = { 'Imo Bar': 'IMO Bar', 'Coppa Cafe': 'Coppa Café' };
 
@@ -440,7 +478,7 @@ window.openMenuCategories = async function(outlet){
   document.getElementById('menuCategoriesTitle').textContent = OUTLET_TITLES[currentOutlet] || currentOutlet;
   const cats = [...new Set(menuItemsData.filter(i => i.outlet === currentOutlet).map(i => i.category))];
   document.getElementById('menuCategoryList').innerHTML = cats.map(c => `
-    <div class="tile" onclick="openMenuItems('${c.replace(/'/g,"\\'")}')"><span class="e">🍽️</span><div class="t">${c}</div></div>
+    <div class="tile" onclick="openMenuItems('${c.replace(/'/g,"\\'")}')"><span class="e">🍽️</span><div class="t">${categoryLabel(c)}</div></div>
   `).join('');
   renderCartBar();
   showView('menuCategories');
@@ -450,7 +488,7 @@ let currentMenuCategory = null;
 
 window.openMenuItems = function(category){
   currentMenuCategory = category;
-  document.getElementById('menuItemsTitle').textContent = category;
+  document.getElementById('menuItemsTitle').textContent = categoryLabel(category);
   renderMenuItemsList();
   renderCartBar();
   showView('menuItems');
