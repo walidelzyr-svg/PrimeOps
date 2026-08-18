@@ -1182,6 +1182,7 @@ function playAlertSound(urgent){
 let HK_DEPT_ID = null;
 let FB_DEPT_ID = null;
 let CAFE_DEPT_ID = null;
+let SEC_DEPT_ID = null;
 let reportState = { where:null, assetId:null, what:null, targetDeptId:null, guestReported:null, photo:null, photoUrl:null };
 let reportDeptChoices = [];
 let pendingVerifyCardId = null;
@@ -1343,6 +1344,8 @@ async function init(){
     if (fbDept) FB_DEPT_ID = fbDept.id;
     const { data: cafeDept } = await supabase.from('departments').select('id').eq('code','CAFE').single();
     if (cafeDept) CAFE_DEPT_ID = cafeDept.id;
+    const { data: secDeptInit } = await supabase.from('departments').select('id').eq('code','SEC').single();
+    if (secDeptInit) SEC_DEPT_ID = secDeptInit.id;
 
     // Reference/lookup data first, in parallel — nothing here depends on
     // anything else in this batch, so no reason to wait on each one in turn
@@ -1371,11 +1374,37 @@ async function init(){
     CONNECTED = true;
     toast('Connected to PrimeOps backend');
 
-    // Live sync — any device that changes a case updates everyone else's screen
-    supabase
-      .channel('cases-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'cases' }, () => { loadCases(); })
-      .subscribe();
+    // Live sync — any device that changes a case updates everyone else's screen.
+    // Admin/GM need every department's changes; regular staff only need
+    // their own department's -- scoping this cuts redundant reloads
+    // sharply, since a Housekeeping change no longer wakes up all 81
+    // staff devices, just Housekeeping's (plus admin/gm).
+    if (hasHotelView()){
+      supabase
+        .channel('cases-changes')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'cases' }, () => { loadCases(); })
+        .subscribe();
+    } else if (currentMember?.department_id){
+      const myDept = currentMember.department_id;
+      let casesChannel = supabase
+        .channel('cases-changes')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'cases', filter: `department_id=eq.${myDept}` }, () => { loadCases(); })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'cases', filter: `requesting_department_id=eq.${myDept}` }, () => { loadCases(); });
+      // Maintenance/Engineering are joint fire marshals with Security --
+      // they need Security's changes too, not just their own, to match
+      // the same visibility loadCases() already grants them.
+      if (currentMember?.departments?.code === 'ENG' && SEC_DEPT_ID){
+        casesChannel = casesChannel.on('postgres_changes', { event: '*', schema: 'public', table: 'cases', filter: `department_id=eq.${SEC_DEPT_ID}` }, () => { loadCases(); });
+      }
+      casesChannel.subscribe();
+    } else {
+      // No department on file -- fall back to the broad subscription
+      // rather than risk this device silently missing every update.
+      supabase
+        .channel('cases-changes')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'cases' }, () => { loadCases(); })
+        .subscribe();
+    }
 
     // Live sync — check-ins and check-outs update the Hotel Health tile
     // for everyone immediately, no manual refresh needed
