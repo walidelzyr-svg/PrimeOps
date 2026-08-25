@@ -476,6 +476,11 @@
       <summary>Endorsement History <span id="endorsementHistoryCount" class="count-pill"></span></summary>
       <div class="cards" id="endorsementHistoryList"></div>
     </details>
+    <details class="history-section">
+      <summary>Guest Requests &amp; Orders <span id="guestHistoryCount" class="count-pill"></span></summary>
+      <div style="color:var(--muted); font-size:12px; padding:0 4px 8px;">Last 3 days</div>
+      <div class="cards" id="guestHistoryList"></div>
+    </details>
     <div class="spacer"></div>
   </main>
 
@@ -1079,7 +1084,12 @@ const OBS_EMOJI = {
   "Toilet":"🚽","Toilet Clogged":"🚽","Aircon":"❄️","Dirty":"🧹","Leak":"🚰","Pest":"🐀","Light":"💡","TV":"📺","Wi-Fi":"📶","Guest":"😊","Other":"📝",
   "Post-Engineering Cleanup":"🧽","Post-Incident Cleanup":"🧽","Courtesy Call":"📞",
   "Electrical":"⚡","Mechanical":"🔧","Safety System":"🔥","Elevator":"🛗","Structural":"🏗️","Maintenance":"🛠️",
-  "Fire Alarm Investigation":"🔥","VCI (Vacant and Inspected)":"🛏️","Check Out":"🛫","Room Air-Out":"🌬️","Intoxicated Guest":"🍺","Disturbance":"🚨","Lost Key/Access":"🔑","CCTV Issue":"📹","Suspicious Person":"🚪","Parking Issue":"🅿️"
+  "Fire Alarm Investigation":"🔥","VCI (Vacant and Inspected)":"🛏️","Check Out":"🛫","Room Air-Out":"🌬️","Intoxicated Guest":"🍺","Disturbance":"🚨","Lost Key/Access":"🔑","CCTV Issue":"📹","Suspicious Person":"🚪","Parking Issue":"🅿️",
+  // Guest-facing request/order types (mirrors the emoji shown in guest.html)
+  "Air Conditioning Issue":"🌡️","TV / Internet Issue":"🛜","Plumbing Issue":"👨‍🔧","Electrical Issue":"💡","General Repair":"👷🏻‍♂️",
+  "Wake-up Call":"⏰","Extra Key Card":"🗝️","Late Check-out Request":"🧳","Restaurant Reservation":"🍝","Transportation":"🚐",
+  "Extra Pillow":"☁️","Extra Towels":"⬜","Extra Bed":"🛏️","Toiletries":"🧼","Room Cleaning":"🧹",
+  "F&B Order":"🍽️","Guest Message":"💬","Emergency Assistance":"🚨"
 };
 const VERIFY_METHODS = ["Visual inspection","Guest confirmed","Supervisor confirmed","Measurement","Photo"];
 
@@ -1953,6 +1963,15 @@ function isToday(dateStr){
   return phDay(dateStr) === phDay(new Date());
 }
 
+function withinLastNDays(ts, n){
+  // Calendar-day based (PH time), same semantics as the Today/Yesterday
+  // grouping below -- "last 3 days" means today + the previous 2 PH
+  // calendar days, not a rolling 72-hour window.
+  if (!ts) return false;
+  const cutoff = phDay(new Date(Date.now() - (n - 1) * 24 * 60 * 60 * 1000));
+  return phDay(ts) >= cutoff; // 'YYYY-MM-DD' strings compare correctly as text
+}
+
 function dateGroupLabel(ts){
   const day = phDay(ts);
   if (day === phDay(new Date())) return 'Today';
@@ -1973,6 +1992,24 @@ function groupByDate(items, dateFn){
   return Object.keys(groups)
     .sort((a,b) => b.localeCompare(a)) // 'YYYY-MM-DD' sorts newest-first as plain text
     .map((key, i) => ({ key, label: dateGroupLabel(dateFn(groups[key][0])), items: groups[key], openByDefault: i === 0 }));
+}
+
+function guestHistoryCardHtml(c){
+  const outcome = c.status === 'completed' ? { icon:'✅', label:'Completed' }
+    : c.status === 'rejected' ? { icon:'❌', label:'Declined' }
+    : { icon:'🚫', label:'Cancelled' };
+  return `
+    <div class="history-row">
+      <div class="l">
+        <div class="t">${OBS_EMOJI[c.detail_type]||'🙋'} ${c.detail_type || c.title}</div>
+        <div class="a">${c.asset_label}</div>
+        ${timesLine(c)}
+        ${descLine(c)}
+        ${c.detail_type === 'F&B Order' ? `<button class="btn ghost" style="margin-top:8px;" onclick="openOrderDetails('${c.id}')">🧾 View Order</button>` : ''}
+      </div>
+      <div class="r">${outcome.icon} ${outcome.label}</div>
+    </div>
+  `;
 }
 
 function dateGroupsHtml(items, dateFn, cardFn){
@@ -2089,6 +2126,16 @@ function render(){
       <div class="r">✓ ${h.verified_method||''}</div>
     </div>
   `) || `<div class="empty">No completed items yet today.</div>`;
+
+  const guestHistory = history.filter(c => c.guest_stay_id && withinLastNDays(c.verified_at || c.created_at, 3));
+  const guestHistoryCountEl = document.getElementById('guestHistoryCount');
+  if (guestHistoryCountEl) guestHistoryCountEl.textContent = guestHistory.length || '';
+  document.getElementById('guestHistoryList').innerHTML =
+    dateGroupsHtml(
+      guestHistory.slice().sort((a,b)=> new Date(b.verified_at||b.created_at) - new Date(a.verified_at||a.created_at)),
+      h => h.verified_at || h.created_at,
+      guestHistoryCardHtml
+    ) || `<div class="empty">No guest requests or orders in the last 3 days.</div>`;
 
   if (hasHotelView()) renderGM();
 }
