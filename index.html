@@ -1481,8 +1481,12 @@ function fmtTime(ts){
 
 function descLine(c){
   if (!c.description) return '';
-  if (c.description.length <= 80) return `<div class="desc">“${c.description}”</div>`;
-  return `<details class="desc-details"><summary>📝 View note</summary><div class="desc">“${c.description}”</div></details>`;
+  const shown = c.description_translated || c.description;
+  const original = (c.description_translated && c.description_translated !== c.description)
+    ? `<div class="desc" style="color:var(--muted); font-size:12px; margin-top:2px;">Original: “${c.description}”</div>`
+    : '';
+  if (shown.length <= 80) return `<div class="desc">“${shown}”</div>${original}`;
+  return `<details class="desc-details"><summary>📝 View note</summary><div class="desc">“${shown}”</div>${original}</details>`;
 }
 
 function timesLine(c){

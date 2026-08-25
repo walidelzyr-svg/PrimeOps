@@ -734,13 +734,31 @@ window.submitOtherMessage = async function(){
   const departmentId = deptIds['FO'];
   if (!departmentId){ alert('Something went wrong — please ask our staff directly.'); return; }
   const title = `Guest Message: ${val.slice(0, 60)} — ${guestDisplayLabel()}`;
+
+  // Translate the guest's first message to English before the case is
+  // created, so staff see it in English from the moment it lands --
+  // same as replies already do via translate-message, just earlier in
+  // the flow since no case_id exists yet at this point. An enhancement,
+  // never a dependency: if this fails for any reason, translated stays
+  // null and the message still sends with the original text only.
+  let translated = null;
+  try {
+    const res = await fetch('https://ktdnljmfnniuagwhdzas.supabase.co/functions/v1/translate-text', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ session_id: sessionId, text: val })
+    });
+    if (res.ok){ const json = await res.json(); translated = json?.translated ?? null; }
+  } catch (err){ console.error('translate-text error:', err); }
+
   const { data: ok, error } = await supabase.rpc('submit_guest_request', {
     p_session_id: sessionId,
     p_department_id: departmentId,
     p_title: title,
     p_detail_type: 'Guest Message',
     p_description: val,
-    p_asset_label: guestDisplayLabel()
+    p_asset_label: guestDisplayLabel(),
+    p_description_translated: translated
   });
   if (error || !ok){
     console.error(error);
