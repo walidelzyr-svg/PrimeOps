@@ -726,7 +726,12 @@
       <div style="font-weight:800; margin:20px 0 8px; font-size:14px;">Request History</div>
       <div id="roomDetailHistory" style="max-height:280px; overflow-y:auto;"></div>
 
-      <button class="btn" style="width:100%; margin-top:20px; background:var(--red-tint); color:var(--red);" onclick="checkOutGuest(currentRoomDetailStayId)">Check Out</button>
+      <button class="btn" id="checkOutBtn" style="width:100%; margin-top:20px; background:var(--red-tint); color:var(--red);" onclick="showCheckOutConfirm()">Check Out</button>
+      <div id="checkOutConfirmBox" style="display:none; margin-top:12px; padding:14px; background:var(--red-tint); border-radius:12px;">
+        <div style="font-size:13px; color:var(--red); font-weight:700; margin-bottom:10px;">Check out this guest now? Their app access will end immediately.</div>
+        <button class="btn" style="width:100%; background:var(--red); color:#fff;" onclick="checkOutGuest(currentRoomDetailStayId)">Yes, Check Out</button>
+        <button class="btn ghost" style="width:100%; margin-top:8px;" onclick="hideCheckOutConfirm()">Cancel</button>
+      </div>
     </div>
   </div>
 
@@ -803,7 +808,7 @@
         <input type="date" id="guestStayDeparture" style="width:100%; padding:12px; border:1px solid var(--line); border-radius:10px; font-size:15px;" />
       </div>
       <div class="login-error" id="guestStayError"></div>
-      <button class="btn primary" style="width:100%; margin-top:8px;" onclick="submitGuestStay()">Create & Generate PIN</button>
+      <button class="btn primary" id="guestStaySubmitBtn" style="width:100%; margin-top:8px;" onclick="submitGuestStay()">Create & Generate PIN</button>
     </div>
   </div>
 
@@ -2718,6 +2723,8 @@ function closeGuestStayOnBg(e){ if(e.target.id==='guestStayOverlay') document.ge
 function closeGuestStayPinOnBg(e){ if(e.target.id==='guestStayPinOverlay') document.getElementById('guestStayPinOverlay').classList.remove('open'); }
 
 async function submitGuestStay(){
+  const btn = document.getElementById('guestStaySubmitBtn');
+  if (btn.disabled) return; // already submitting -- ignore a double-tap outright
   const room = document.getElementById('guestStayRoom').value;
   const name = document.getElementById('guestStayName').value.trim();
   const arrival = document.getElementById('guestStayArrival').value;
@@ -2737,6 +2744,8 @@ async function submitGuestStay(){
   errBox.classList.remove('show');
 
   const pin = String(Math.floor(1000 + Math.random() * 9000));
+  btn.disabled = true;
+  btn.textContent = 'Creating…';
 
   const { error } = await supabase.from('guest_stays').insert({
     room_number: room,
@@ -2746,6 +2755,8 @@ async function submitGuestStay(){
     pin,
     created_by: currentMember?.id || null
   });
+  btn.disabled = false;
+  btn.textContent = 'Create & Generate PIN';
   if (error){
     console.error(error);
     errBox.textContent = "Couldn't create this — check your connection and try again.";
@@ -2816,10 +2827,22 @@ function openRoomDetail(stayId){
     </div>
   `).join('') : '<p style="color:var(--muted); font-size:13px;">No requests or orders from this room yet.</p>';
 
+  document.getElementById('checkOutBtn').style.display = '';
+  document.getElementById('checkOutConfirmBox').style.display = 'none';
+
   document.getElementById('checkedInOverlay').classList.remove('open');
   document.getElementById('roomDetailOverlay').classList.add('open');
 }
 function closeRoomDetailOnBg(e){ if(e.target.id==='roomDetailOverlay') document.getElementById('roomDetailOverlay').classList.remove('open'); }
+
+function showCheckOutConfirm(){
+  document.getElementById('checkOutBtn').style.display = 'none';
+  document.getElementById('checkOutConfirmBox').style.display = 'block';
+}
+function hideCheckOutConfirm(){
+  document.getElementById('checkOutBtn').style.display = '';
+  document.getElementById('checkOutConfirmBox').style.display = 'none';
+}
 
 async function extendStay(){
   if (!currentRoomDetailStayId) return;
@@ -2836,10 +2859,10 @@ async function extendStay(){
 
 async function checkOutGuest(stayId){
   if (!stayId) return;
-  if (!confirm('Check out this guest now? Their app access will end immediately.')) return;
   const { error } = await supabase.from('guest_stays').update({ checked_out_at: new Date().toISOString() }).eq('id', stayId);
   if (error){ toast("Couldn't check out — try again"); return; }
   toast('Guest checked out — their access has ended');
+  hideCheckOutConfirm();
   document.getElementById('roomDetailOverlay').classList.remove('open');
   refreshCheckedInCount();
 }
@@ -3926,7 +3949,7 @@ Object.assign(window, {
   chooseGuestStay, closeGuestStayOnBg, closeGuestStayPinOnBg, submitGuestStay,
   openGuestConvo, closeGuestConvoOnBg, sendGuestConvoReply,
   openCheckedInGuests, closeCheckedInOnBg, checkOutGuest,
-  renderCheckedInList, openRoomDetail, closeRoomDetailOnBg, extendStay,
+  renderCheckedInList, openRoomDetail, closeRoomDetailOnBg, extendStay, showCheckOutConfirm, hideCheckOutConfirm,
   openGuestActivity, closeGuestActivityOnBg, selectGuestActivityStat, closeConversation,
   openReject, closeRejectOnBg, submitReject,
   openReply, closeReplyOnBg, submitReply,
