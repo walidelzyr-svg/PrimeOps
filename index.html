@@ -718,10 +718,10 @@
       <div style="font-size:12px; color:var(--muted); margin-top:2px;" id="roomDetailDates"></div>
 
       <div class="field">
-        <label>New departure date</label>
+        <label>Departure date</label>
         <input type="date" id="roomDetailNewDate" style="width:100%; padding:12px; border:1px solid var(--line); border-radius:10px; font-size:15px;" />
       </div>
-      <button class="btn ghost" style="width:100%;" onclick="extendStay()">Extend Stay</button>
+      <button class="btn ghost" style="width:100%;" onclick="extendStay()">Update Departure Date</button>
 
       <div style="font-weight:800; margin:20px 0 8px; font-size:14px;">Request History</div>
       <div id="roomDetailHistory" style="max-height:280px; overflow-y:auto;"></div>
@@ -2775,23 +2775,27 @@ async function openCheckedInGuests(){
 function renderCheckedInList(){
   const q = (document.getElementById('checkedInSearch').value || '').trim().toLowerCase();
   const rows = q ? checkedInGuests.filter(g => g.room_number.toLowerCase().includes(q)) : checkedInGuests;
+  const todayPH = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' }); // 'YYYY-MM-DD', compares correctly as text
   const list = document.getElementById('checkedInList');
-  list.innerHTML = rows.length ? rows.map(g => `
+  list.innerHTML = rows.length ? rows.map(g => {
+    const overdue = g.departure_date < todayPH;
+    return `
     <div class="opt" style="padding:12px 14px; margin-top:8px; align-items:center; gap:12px; text-align:left; cursor:pointer;" onclick="openRoomDetail('${g.id}')">
       <div style="flex:1;">
         <div style="font-weight:700;">Room ${g.room_number} — ${g.guest_name}</div>
-        <div style="font-size:11px; color:var(--muted);">${g.arrival_date} → ${g.departure_date}</div>
+        <div style="font-size:11px; color:${overdue ? 'var(--red)' : 'var(--muted)'};">${g.arrival_date} → ${g.departure_date}${overdue ? ' · Departure date passed' : ''}</div>
       </div>
       <span style="color:var(--muted);">›</span>
     </div>
-  `).join('') : `<p style="color:var(--muted); font-size:14px;">${checkedInGuests.length ? 'No rooms match that search.' : 'No one currently checked in.'}</p>`;
+  `;
+  }).join('') : `<p style="color:var(--muted); font-size:14px;">${checkedInGuests.length ? 'No rooms match that search.' : 'No one currently checked in.'}</p>`;
 }
 function closeCheckedInOnBg(e){ if(e.target.id==='checkedInOverlay') document.getElementById('checkedInOverlay').classList.remove('open'); }
 
 function openRoomDetail(stayId){
   currentRoomDetailStayId = stayId;
   const g = checkedInGuests.find(x => x.id === stayId);
-  if (!g) return;
+  if (!g){ toast("Couldn't find that room — try reopening Checked-in Guests"); return; }
   document.getElementById('roomDetailTitle').textContent = `Room ${g.room_number} — ${g.guest_name}`;
   document.getElementById('roomDetailDates').textContent = `${g.arrival_date} → ${g.departure_date}`;
   document.getElementById('roomDetailNewDate').value = g.departure_date;
@@ -2823,7 +2827,7 @@ async function extendStay(){
   if (!newDate) return;
   const { error } = await supabase.from('guest_stays').update({ departure_date: newDate }).eq('id', currentRoomDetailStayId);
   if (error){ toast("Couldn't update the departure date — try again"); return; }
-  toast(`Stay extended to ${newDate}`);
+  toast(`Departure date updated to ${newDate}`);
   const { data } = await supabase.rpc('get_checked_in_guests');
   checkedInGuests = data || [];
   refreshCheckedInCount();
