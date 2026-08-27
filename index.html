@@ -703,7 +703,30 @@
     <div class="sheet">
       <div class="sheet-handle"></div>
       <div class="sheet-title">Checked-in Guests</div>
-      <div id="checkedInList" style="margin-top:14px; max-height:400px; overflow-y:auto;"></div>
+      <div class="field" style="margin-top:10px;">
+        <input type="text" id="checkedInSearch" placeholder="Search room number…" oninput="renderCheckedInList()" autocomplete="off" />
+      </div>
+      <div id="checkedInList" style="margin-top:4px; max-height:400px; overflow-y:auto;"></div>
+    </div>
+  </div>
+
+  <!-- Room detail: extend stay, request history, check out -->
+  <div class="overlay" id="roomDetailOverlay" onclick="closeRoomDetailOnBg(event)">
+    <div class="sheet">
+      <div class="sheet-handle"></div>
+      <div class="sheet-title" id="roomDetailTitle">Room</div>
+      <div style="font-size:12px; color:var(--muted); margin-top:2px;" id="roomDetailDates"></div>
+
+      <div class="field">
+        <label>New departure date</label>
+        <input type="date" id="roomDetailNewDate" style="width:100%; padding:12px; border:1px solid var(--line); border-radius:10px; font-size:15px;" />
+      </div>
+      <button class="btn ghost" style="width:100%;" onclick="extendStay()">Extend Stay</button>
+
+      <div style="font-weight:800; margin:20px 0 8px; font-size:14px;">Request History</div>
+      <div id="roomDetailHistory" style="max-height:280px; overflow-y:auto;"></div>
+
+      <button class="btn" style="width:100%; margin-top:20px; background:var(--red-tint); color:var(--red);" onclick="checkOutGuest(currentRoomDetailStayId)">Check Out</button>
     </div>
   </div>
 
@@ -2738,28 +2761,82 @@ async function submitGuestStay(){
 /* ---------------- Guest conversation (reply to Other/Message) ---------------- */
 let currentGuestConvoCaseId = null;
 
+let checkedInGuests = [];
+let currentRoomDetailStayId = null;
+
 async function openCheckedInGuests(){
   const { data } = await supabase.rpc('get_checked_in_guests');
+  checkedInGuests = data || [];
+  document.getElementById('checkedInSearch').value = '';
+  renderCheckedInList();
+  document.getElementById('checkedInOverlay').classList.add('open');
+}
+
+function renderCheckedInList(){
+  const q = (document.getElementById('checkedInSearch').value || '').trim().toLowerCase();
+  const rows = q ? checkedInGuests.filter(g => g.room_number.toLowerCase().includes(q)) : checkedInGuests;
   const list = document.getElementById('checkedInList');
-  const rows = data || [];
   list.innerHTML = rows.length ? rows.map(g => `
-    <div class="opt" style="padding:12px 14px; margin-top:8px; align-items:center; gap:12px; text-align:left;">
+    <div class="opt" style="padding:12px 14px; margin-top:8px; align-items:center; gap:12px; text-align:left; cursor:pointer;" onclick="openRoomDetail('${g.id}')">
       <div style="flex:1;">
         <div style="font-weight:700;">Room ${g.room_number} — ${g.guest_name}</div>
         <div style="font-size:11px; color:var(--muted);">${g.arrival_date} → ${g.departure_date}</div>
       </div>
-      <button class="btn ghost" onclick="checkOutGuest('${g.id}')">Check Out</button>
+      <span style="color:var(--muted);">›</span>
     </div>
-  `).join('') : '<p style="color:var(--muted); font-size:14px;">No one currently checked in.</p>';
-  document.getElementById('checkedInOverlay').classList.add('open');
+  `).join('') : `<p style="color:var(--muted); font-size:14px;">${checkedInGuests.length ? 'No rooms match that search.' : 'No one currently checked in.'}</p>`;
 }
 function closeCheckedInOnBg(e){ if(e.target.id==='checkedInOverlay') document.getElementById('checkedInOverlay').classList.remove('open'); }
 
+function openRoomDetail(stayId){
+  currentRoomDetailStayId = stayId;
+  const g = checkedInGuests.find(x => x.id === stayId);
+  if (!g) return;
+  document.getElementById('roomDetailTitle').textContent = `Room ${g.room_number} — ${g.guest_name}`;
+  document.getElementById('roomDetailDates').textContent = `${g.arrival_date} → ${g.departure_date}`;
+  document.getElementById('roomDetailNewDate').value = g.departure_date;
+
+  const stayCases = cases
+    .filter(c => c.guest_stay_id === stayId)
+    .slice()
+    .sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
+  document.getElementById('roomDetailHistory').innerHTML = stayCases.length ? stayCases.map(c => `
+    <div class="history-row">
+      <div class="l">
+        <div class="t">${OBS_EMOJI[c.detail_type]||'🙋'} ${c.detail_type || c.title}</div>
+        ${timesLine(c)}
+        ${descLine(c)}
+        ${c.detail_type === 'F&B Order' ? `<button class="btn ghost" style="margin-top:8px;" onclick="openOrderDetails('${c.id}')">🧾 View Order</button>` : ''}
+      </div>
+      <div class="r">${statusLabel(c.status)}</div>
+    </div>
+  `).join('') : '<p style="color:var(--muted); font-size:13px;">No requests or orders from this room yet.</p>';
+
+  document.getElementById('checkedInOverlay').classList.remove('open');
+  document.getElementById('roomDetailOverlay').classList.add('open');
+}
+function closeRoomDetailOnBg(e){ if(e.target.id==='roomDetailOverlay') document.getElementById('roomDetailOverlay').classList.remove('open'); }
+
+async function extendStay(){
+  if (!currentRoomDetailStayId) return;
+  const newDate = document.getElementById('roomDetailNewDate').value;
+  if (!newDate) return;
+  const { error } = await supabase.from('guest_stays').update({ departure_date: newDate }).eq('id', currentRoomDetailStayId);
+  if (error){ toast("Couldn't update the departure date — try again"); return; }
+  toast(`Stay extended to ${newDate}`);
+  const { data } = await supabase.rpc('get_checked_in_guests');
+  checkedInGuests = data || [];
+  refreshCheckedInCount();
+  openRoomDetail(currentRoomDetailStayId); // re-render this same sheet with the updated date
+}
+
 async function checkOutGuest(stayId){
+  if (!stayId) return;
+  if (!confirm('Check out this guest now? Their app access will end immediately.')) return;
   const { error } = await supabase.from('guest_stays').update({ checked_out_at: new Date().toISOString() }).eq('id', stayId);
   if (error){ toast("Couldn't check out — try again"); return; }
   toast('Guest checked out — their access has ended');
-  openCheckedInGuests();
+  document.getElementById('roomDetailOverlay').classList.remove('open');
   refreshCheckedInCount();
 }
 
@@ -3845,6 +3922,7 @@ Object.assign(window, {
   chooseGuestStay, closeGuestStayOnBg, closeGuestStayPinOnBg, submitGuestStay,
   openGuestConvo, closeGuestConvoOnBg, sendGuestConvoReply,
   openCheckedInGuests, closeCheckedInOnBg, checkOutGuest,
+  renderCheckedInList, openRoomDetail, closeRoomDetailOnBg, extendStay,
   openGuestActivity, closeGuestActivityOnBg, selectGuestActivityStat, closeConversation,
   openReject, closeRejectOnBg, submitReject,
   openReply, closeReplyOnBg, submitReply,
