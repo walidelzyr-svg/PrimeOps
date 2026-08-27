@@ -706,6 +706,14 @@
       <div class="field" style="margin-top:10px;">
         <input type="text" id="checkedInSearch" placeholder="Search room number…" oninput="renderCheckedInList()" autocomplete="off" />
       </div>
+      <div id="checkedInOverdueBar" style="display:none; margin-top:2px; padding:12px 14px; background:var(--red-tint); border-radius:12px;">
+        <div id="checkedInOverdueLabel" style="font-size:13px; color:var(--red); font-weight:700; margin-bottom:8px;"></div>
+        <button class="btn ghost" id="checkedInOverdueBtn" onclick="showOverdueConfirm()">Check Out All Overdue</button>
+        <div id="checkedInOverdueConfirmBox" style="display:none; margin-top:8px;">
+          <button class="btn" style="background:var(--red); color:#fff;" onclick="checkOutAllOverdue()">Yes, Check Out All</button>
+          <button class="btn ghost" style="margin-top:8px;" onclick="hideOverdueConfirm()">Cancel</button>
+        </div>
+      </div>
       <div id="checkedInList" style="margin-top:4px; max-height:400px; overflow-y:auto;"></div>
     </div>
   </div>
@@ -2787,6 +2795,18 @@ function renderCheckedInList(){
   const q = (document.getElementById('checkedInSearch').value || '').trim().toLowerCase();
   const rows = q ? checkedInGuests.filter(g => g.room_number.toLowerCase().includes(q)) : checkedInGuests;
   const todayPH = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' }); // 'YYYY-MM-DD', compares correctly as text
+
+  const overdueCount = checkedInGuests.filter(g => g.departure_date < todayPH).length;
+  const overdueBar = document.getElementById('checkedInOverdueBar');
+  if (overdueCount){
+    overdueBar.style.display = 'block';
+    document.getElementById('checkedInOverdueLabel').textContent = `${overdueCount} room${overdueCount > 1 ? 's' : ''} past their departure date`;
+    document.getElementById('checkedInOverdueBtn').style.display = '';
+    document.getElementById('checkedInOverdueConfirmBox').style.display = 'none';
+  } else {
+    overdueBar.style.display = 'none';
+  }
+
   const list = document.getElementById('checkedInList');
   list.innerHTML = rows.length ? rows.map(g => {
     const overdue = g.departure_date < todayPH;
@@ -2802,6 +2822,28 @@ function renderCheckedInList(){
   }).join('') : `<p style="color:var(--muted); font-size:14px;">${checkedInGuests.length ? 'No rooms match that search.' : 'No one currently checked in.'}</p>`;
 }
 function closeCheckedInOnBg(e){ if(e.target.id==='checkedInOverlay') document.getElementById('checkedInOverlay').classList.remove('open'); }
+
+function showOverdueConfirm(){
+  document.getElementById('checkedInOverdueBtn').style.display = 'none';
+  document.getElementById('checkedInOverdueConfirmBox').style.display = 'block';
+}
+function hideOverdueConfirm(){
+  document.getElementById('checkedInOverdueBtn').style.display = '';
+  document.getElementById('checkedInOverdueConfirmBox').style.display = 'none';
+}
+
+async function checkOutAllOverdue(){
+  const todayPH = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' });
+  const overdueIds = checkedInGuests.filter(g => g.departure_date < todayPH).map(g => g.id);
+  if (!overdueIds.length) return;
+  const { error } = await supabase.from('guest_stays').update({ checked_out_at: new Date().toISOString() }).in('id', overdueIds);
+  if (error){ toast("Couldn't check out — try again"); return; }
+  toast(`Checked out ${overdueIds.length} overdue room${overdueIds.length > 1 ? 's' : ''}`);
+  const { data } = await supabase.rpc('get_checked_in_guests');
+  checkedInGuests = data || [];
+  refreshCheckedInCount();
+  renderCheckedInList();
+}
 
 function openRoomDetail(stayId){
   currentRoomDetailStayId = stayId;
@@ -3950,6 +3992,7 @@ Object.assign(window, {
   openGuestConvo, closeGuestConvoOnBg, sendGuestConvoReply,
   openCheckedInGuests, closeCheckedInOnBg, checkOutGuest,
   renderCheckedInList, openRoomDetail, closeRoomDetailOnBg, extendStay, showCheckOutConfirm, hideCheckOutConfirm,
+  showOverdueConfirm, hideOverdueConfirm, checkOutAllOverdue,
   openGuestActivity, closeGuestActivityOnBg, selectGuestActivityStat, closeConversation,
   openReject, closeRejectOnBg, submitReject,
   openReply, closeReplyOnBg, submitReply,
