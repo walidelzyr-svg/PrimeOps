@@ -391,7 +391,7 @@
     <div class="login-btn">
       <button class="btn primary" onclick="doLogin()">Sign In</button>
     </div>
-    <div style="text-align:center; margin-top:16px; font-size:11px; color:var(--muted);">Build 2026-08-28-01</div>
+    <div style="text-align:center; margin-top:16px; font-size:11px; color:var(--muted);">Build 2026-08-28-02</div>
   </div>
 </div>
 
@@ -493,7 +493,7 @@
         <div style="color:var(--muted); font-size:13px; margin-top:2px;" id="profilePosition">Housekeeping Attendant</div>
         <div style="color:var(--muted); font-size:12px; margin-top:10px; font-family:var(--mono);" id="profileHotel">PRIME ASIA HOTEL</div>
         <button class="btn ghost" style="margin-top:20px;" onclick="doLogout()">Sign Out</button>
-        <div style="text-align:center; margin-top:16px; font-size:11px; color:var(--muted);">Build 2026-08-28-01</div>
+        <div style="text-align:center; margin-top:16px; font-size:11px; color:var(--muted);">Build 2026-08-28-02</div>
       </div>
     </div>
   </main>
@@ -739,7 +739,7 @@
       <button class="btn" id="checkOutBtn" style="width:100%; margin-top:20px; background:var(--red-tint); color:var(--red);" onclick="showCheckOutConfirm()">Check Out</button>
       <div id="checkOutConfirmBox" style="display:none; margin-top:12px; padding:14px; background:var(--red-tint); border-radius:12px;">
         <div style="font-size:13px; color:var(--red); font-weight:700; margin-bottom:10px;">Check out this guest now? Their app access will end immediately.</div>
-        <button class="btn" style="width:100%; background:var(--red); color:#fff;" onclick="checkOutGuest(currentRoomDetailStayId)">Yes, Check Out</button>
+        <button class="btn" style="width:100%; background:var(--red); color:#fff;" onclick="checkOutGuest()">Yes, Check Out</button>
         <button class="btn ghost" style="width:100%; margin-top:8px;" onclick="hideCheckOutConfirm()">Cancel</button>
       </div>
     </div>
@@ -2901,7 +2901,16 @@ async function extendStay(){
   openRoomDetail(currentRoomDetailStayId); // re-render this same sheet with the updated date
 }
 
-async function checkOutGuest(stayId){
+async function checkOutGuest(){
+  // Read directly from module scope -- this script runs as type="module",
+  // so a bare identifier inside an inline onclick="..." attribute resolves
+  // against window (undefined), NOT this module's scope. Passing
+  // currentRoomDetailStayId as an onclick argument was the actual bug:
+  // it silently called this function with undefined every time, which
+  // the `if (!stayId) return` guard swallowed with no error and no sign
+  // anything had gone wrong. Reading the module variable in here instead
+  // is the same safe pattern extendStay() already uses.
+  const stayId = currentRoomDetailStayId;
   if (!stayId) return;
   const { error } = await supabase.from('guest_stays').update({ checked_out_at: new Date().toISOString() }).eq('id', stayId);
   if (error){ toast("Couldn't check out — try again"); return; }
