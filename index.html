@@ -391,7 +391,7 @@
     <div class="login-btn">
       <button class="btn primary" onclick="doLogin()">Sign In</button>
     </div>
-    <div style="text-align:center; margin-top:16px; font-size:11px; color:var(--muted);">Build 2026-08-28-02</div>
+    <div style="text-align:center; margin-top:16px; font-size:11px; color:var(--muted);">Build 2026-08-28-03</div>
   </div>
 </div>
 
@@ -493,7 +493,7 @@
         <div style="color:var(--muted); font-size:13px; margin-top:2px;" id="profilePosition">Housekeeping Attendant</div>
         <div style="color:var(--muted); font-size:12px; margin-top:10px; font-family:var(--mono);" id="profileHotel">PRIME ASIA HOTEL</div>
         <button class="btn ghost" style="margin-top:20px;" onclick="doLogout()">Sign Out</button>
-        <div style="text-align:center; margin-top:16px; font-size:11px; color:var(--muted);">Build 2026-08-28-02</div>
+        <div style="text-align:center; margin-top:16px; font-size:11px; color:var(--muted);">Build 2026-08-28-03</div>
       </div>
     </div>
   </main>
@@ -696,6 +696,22 @@
           <div>Checked-in Guests</div>
           <div style="font-size:11px; color:var(--muted); font-weight:400; margin-top:2px;">View who currently has guest platform access, check out early</div>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Hotel Overview report -->
+  <div class="overlay" id="hotelOverviewOverlay" onclick="closeHotelOverviewOnBg(event)">
+    <div class="sheet" style="max-height:85vh; overflow-y:auto;">
+      <div class="sheet-handle"></div>
+      <div class="sheet-title">Hotel Overview</div>
+      <div style="display:flex; gap:8px; margin-top:14px;">
+        <button class="btn ghost" id="hoRangeToday" style="width:auto; flex:1; padding:9px 10px; font-size:13px;" onclick="setHotelOverviewRange('today')">Today</button>
+        <button class="btn ghost" id="hoRangeWeek" style="width:auto; flex:1; padding:9px 10px; font-size:13px;" onclick="setHotelOverviewRange('week')">7 Days</button>
+        <button class="btn ghost" id="hoRangeMonth" style="width:auto; flex:1; padding:9px 10px; font-size:13px;" onclick="setHotelOverviewRange('month')">30 Days</button>
+      </div>
+      <div id="hotelOverviewBody" style="margin-top:16px;">
+        <p style="color:var(--muted); font-size:13px;">Loading…</p>
       </div>
     </div>
   </div>
@@ -2185,7 +2201,8 @@ function renderGM(){
     return `<div class="gm-stat ${active}" onclick="selectGmStat('${stat.key}')"><span class="e">${stat.e}</span><div class="n">${n}</div><div class="l">${stat.l}</div></div>`;
   }).join('')
   + `<div class="gm-stat" onclick="openCheckedInGuests()"><span class="e">🔑</span><div class="n">${checkedInCount}</div><div class="l">Checked-in Guests</div></div>`
-  + `<div class="gm-stat" onclick="openGuestActivity()"><span class="e">🛎️</span><div class="n">${guestActivityCount()}</div><div class="l">Guest Requests &amp; Messages</div></div>`;
+  + `<div class="gm-stat" onclick="openGuestActivity()"><span class="e">🛎️</span><div class="n">${guestActivityCount()}</div><div class="l">Guest Requests &amp; Messages</div></div>`
+  + `<div class="gm-stat" onclick="openHotelOverview()"><span class="e">📊</span><div class="n">→</div><div class="l">Hotel Overview</div></div>`;
 
   const hint = document.getElementById('gmHint');
   const title = document.getElementById('gmDetailTitle');
@@ -2784,6 +2801,81 @@ let currentGuestConvoCaseId = null;
 
 let checkedInGuests = [];
 let currentRoomDetailStayId = null;
+
+let hotelOverviewRange = 'week';
+
+window.openHotelOverview = function(){
+  loadHotelOverview();
+  document.getElementById('hotelOverviewOverlay').classList.add('open');
+};
+function closeHotelOverviewOnBg(e){ if(e.target.id==='hotelOverviewOverlay') document.getElementById('hotelOverviewOverlay').classList.remove('open'); }
+
+window.setHotelOverviewRange = function(range){
+  hotelOverviewRange = range;
+  loadHotelOverview();
+};
+
+function hotelOverviewBounds(range){
+  const end = new Date();
+  const start = new Date();
+  if (range === 'today'){ start.setHours(0,0,0,0); }
+  else if (range === 'week'){ start.setDate(start.getDate() - 6); start.setHours(0,0,0,0); }
+  else { start.setDate(start.getDate() - 29); start.setHours(0,0,0,0); }
+  return { start, end };
+}
+
+function fmtMinutes(mins){
+  if (mins === null || mins === undefined) return '—';
+  const m = Math.round(mins);
+  if (m < 60) return `${m}m`;
+  return `${Math.floor(m / 60)}h ${m % 60}m`;
+}
+
+async function loadHotelOverview(){
+  ['today','week','month'].forEach(r => {
+    const btn = document.getElementById('hoRange' + r.charAt(0).toUpperCase() + r.slice(1));
+    const on = r === hotelOverviewRange;
+    btn.style.background = on ? 'var(--blue)' : '';
+    btn.style.color = on ? '#fff' : '';
+    btn.style.borderColor = on ? 'var(--blue)' : 'var(--line)';
+  });
+
+  const body = document.getElementById('hotelOverviewBody');
+  body.innerHTML = '<p style="color:var(--muted); font-size:13px;">Loading…</p>';
+
+  const { start, end } = hotelOverviewBounds(hotelOverviewRange);
+  const { data, error } = await supabase.rpc('get_hotel_overview_stats', {
+    p_start: start.toISOString(), p_end: end.toISOString()
+  });
+  if (error || !data || !data[0]){
+    console.error(error);
+    body.innerHTML = '<p style="color:var(--muted); font-size:13px;">Couldn\u2019t load the overview \u2014 try again.</p>';
+    return;
+  }
+  const s = data[0];
+  const deptEntries = Object.entries(s.by_department || {}).sort((a,b) => b[1] - a[1]);
+
+  body.innerHTML = `
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+      <div class="gm-stat"><span class="e">\ud83d\udccb</span><div class="n">${s.total_cases}</div><div class="l">Total Cases</div></div>
+      <div class="gm-stat"><span class="e">\u2705</span><div class="n">${s.completion_rate}%</div><div class="l">Completion Rate</div></div>
+      <div class="gm-stat"><span class="e">\u23f1\ufe0f</span><div class="n">${fmtMinutes(s.avg_response_minutes)}</div><div class="l">Avg Response Time</div></div>
+      <div class="gm-stat"><span class="e">\ud83c\udfc1</span><div class="n">${fmtMinutes(s.avg_resolution_minutes)}</div><div class="l">Avg Resolution Time</div></div>
+      <div class="gm-stat"><span class="e">\ud83d\udecE\ufe0f</span><div class="n">${s.guest_cases}</div><div class="l">Guest Requests &amp; Orders</div></div>
+      <div class="gm-stat"><span class="e">\ud83e\uddf3</span><div class="n">${s.new_checkins}</div><div class="l">New Check-ins</div></div>
+      <div class="gm-stat"><span class="e">\ud83d\udd11</span><div class="n">${s.currently_checked_in}</div><div class="l">Currently Checked In</div></div>
+      <div class="gm-stat"><span class="e">\ud83d\udeab</span><div class="n">${s.cancelled_cases}</div><div class="l">Cancelled</div></div>
+    </div>
+    <div style="font-weight:800; margin:20px 0 10px; font-size:14px;">By Department</div>
+    <div>
+      ${deptEntries.map(([name, count]) => `
+        <div style="display:flex; justify-content:space-between; padding:10px 4px; border-bottom:1px solid var(--line); font-size:14px;">
+          <span>${name}</span><span style="font-weight:700; font-family:var(--mono);">${count}</span>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
 
 async function openCheckedInGuests(){
   const { data } = await supabase.rpc('get_checked_in_guests');
@@ -4001,6 +4093,7 @@ Object.assign(window, {
   chooseAnnounce, closeAnnounceOnBg, submitAnnouncement, removeAnnouncement,
   chooseGuestStay, closeGuestStayOnBg, closeGuestStayPinOnBg, submitGuestStay,
   openGuestConvo, closeGuestConvoOnBg, sendGuestConvoReply,
+  openHotelOverview, closeHotelOverviewOnBg, setHotelOverviewRange,
   openCheckedInGuests, closeCheckedInOnBg, checkOutGuest,
   renderCheckedInList, openRoomDetail, closeRoomDetailOnBg, extendStay, showCheckOutConfirm, hideCheckOutConfirm,
   showOverdueConfirm, hideOverdueConfirm, checkOutAllOverdue,
