@@ -391,7 +391,7 @@
     <div class="login-btn">
       <button class="btn primary" onclick="doLogin()">Sign In</button>
     </div>
-    <div style="text-align:center; margin-top:16px; font-size:11px; color:var(--muted);">Build 2026-08-28-04</div>
+    <div style="text-align:center; margin-top:16px; font-size:11px; color:var(--muted);">Build 2026-08-28-05</div>
   </div>
 </div>
 
@@ -493,7 +493,7 @@
         <div style="color:var(--muted); font-size:13px; margin-top:2px;" id="profilePosition">Housekeeping Attendant</div>
         <div style="color:var(--muted); font-size:12px; margin-top:10px; font-family:var(--mono);" id="profileHotel">PRIME ASIA HOTEL</div>
         <button class="btn ghost" style="margin-top:20px;" onclick="doLogout()">Sign Out</button>
-        <div style="text-align:center; margin-top:16px; font-size:11px; color:var(--muted);">Build 2026-08-28-04</div>
+        <div style="text-align:center; margin-top:16px; font-size:11px; color:var(--muted);">Build 2026-08-28-05</div>
       </div>
     </div>
   </main>
@@ -706,8 +706,9 @@
       <div class="sheet-handle"></div>
       <div class="sheet-title">Reports</div>
       <div style="display:flex; gap:8px; margin-top:14px;">
-        <button class="btn ghost" id="hoTabOverview" style="width:auto; flex:1; padding:9px 10px; font-size:13px;" onclick="setHotelOverviewTab('overview')">Hotel Overview</button>
-        <button class="btn ghost" id="hoTabDept" style="width:auto; flex:1; padding:9px 10px; font-size:13px;" onclick="setHotelOverviewTab('department')">Department Performance</button>
+        <button class="btn ghost" id="hoTabOverview" style="width:auto; flex:1; padding:9px 8px; font-size:12px;" onclick="setHotelOverviewTab('overview')">Overview</button>
+        <button class="btn ghost" id="hoTabDept" style="width:auto; flex:1; padding:9px 8px; font-size:12px;" onclick="setHotelOverviewTab('department')">Departments</button>
+        <button class="btn ghost" id="hoTabGuest" style="width:auto; flex:1; padding:9px 8px; font-size:12px;" onclick="setHotelOverviewTab('guest')">Guest Experience</button>
       </div>
       <div style="display:flex; gap:8px; margin-top:8px;">
         <button class="btn ghost" id="hoRangeToday" style="width:auto; flex:1; padding:9px 10px; font-size:13px;" onclick="setHotelOverviewRange('today')">Today</button>
@@ -2842,7 +2843,7 @@ function fmtMinutes(mins){
 }
 
 async function loadHotelOverview(){
-  [['hoTabOverview','overview'],['hoTabDept','department']].forEach(([id, key]) => {
+  [['hoTabOverview','overview'],['hoTabDept','department'],['hoTabGuest','guest']].forEach(([id, key]) => {
     const btn = document.getElementById(id);
     const on = key === hotelOverviewTab;
     btn.style.background = on ? 'var(--blue)' : '';
@@ -2861,6 +2862,7 @@ async function loadHotelOverview(){
   body.innerHTML = '<p style="color:var(--muted); font-size:13px;">Loading…</p>';
 
   if (hotelOverviewTab === 'department') loadDepartmentPerformance(body);
+  else if (hotelOverviewTab === 'guest') loadGuestExperience(body);
   else loadHotelOverviewSummary(body);
 }
 
@@ -2921,6 +2923,45 @@ async function loadDepartmentPerformance(body){
       </div>
     </div>
   `).join('') : '<p style="color:var(--muted); font-size:13px;">No department activity in this period.</p>';
+}
+
+async function loadGuestExperience(body){
+  const { start, end } = hotelOverviewBounds(hotelOverviewRange);
+  const { data, error } = await supabase.rpc('get_guest_experience_stats', {
+    p_start: start.toISOString(), p_end: end.toISOString()
+  });
+  if (error || !data || !data[0]){
+    console.error(error);
+    body.innerHTML = '<p style="color:var(--muted); font-size:13px;">Couldn\u2019t load guest experience \u2014 try again.</p>';
+    return;
+  }
+  const s = data[0];
+  const ratings = (s.satisfied_count || 0) + (s.dissatisfied_count || 0);
+  const satisfactionLabel = ratings === 0 ? 'No ratings yet'
+    : `${Math.round(100 * s.satisfied_count / ratings)}% \u00b7 ${ratings} rating${ratings === 1 ? '' : 's'}`;
+  const typeEntries = Object.entries(s.by_type || {}).sort((a,b) => b[1] - a[1]);
+
+  body.innerHTML = `
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+      <div class="gm-stat"><span class="e">\ud83d\udecE\ufe0f</span><div class="n">${s.total_guest_cases}</div><div class="l">Guest Requests &amp; Orders</div></div>
+      <div class="gm-stat"><span class="e">\u26a0\ufe0f</span><div class="n">${s.complaint_count}</div><div class="l">Complaints</div></div>
+      <div class="gm-stat"><span class="e">\u23f1\ufe0f</span><div class="n">${fmtMinutes(s.avg_response_minutes)}</div><div class="l">Avg Response Time</div></div>
+      <div class="gm-stat"><span class="e">\ud83c\udfc1</span><div class="n">${fmtMinutes(s.avg_resolution_minutes)}</div><div class="l">Avg Resolution Time</div></div>
+    </div>
+    <div style="background:var(--surface); border:1.5px solid var(--line); border-radius:14px; padding:14px 16px; margin-top:10px;">
+      <div style="font-weight:700; font-size:13px; color:var(--muted); margin-bottom:4px;">Guest Satisfaction</div>
+      <div style="font-weight:800; font-size:18px;">${satisfactionLabel}</div>
+      ${ratings > 0 && ratings < 5 ? '<div style="font-size:11px; color:var(--muted); margin-top:4px;">Small sample \u2014 most guests don\u2019t rate after their request is done.</div>' : ''}
+    </div>
+    <div style="font-weight:800; margin:20px 0 10px; font-size:14px;">By Request Type</div>
+    <div>
+      ${typeEntries.length ? typeEntries.map(([type, count]) => `
+        <div style="display:flex; justify-content:space-between; padding:10px 4px; border-bottom:1px solid var(--line); font-size:14px;">
+          <span>${OBS_EMOJI[type] || '\ud83d\ude4b'} ${type}</span><span style="font-weight:700; font-family:var(--mono);">${count}</span>
+        </div>
+      `).join('') : '<p style="color:var(--muted); font-size:13px;">No guest requests or orders in this period.</p>'}
+    </div>
+  `;
 }
 
 async function openCheckedInGuests(){
