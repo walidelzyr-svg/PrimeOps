@@ -391,7 +391,7 @@
     <div class="login-btn">
       <button class="btn primary" onclick="doLogin()">Sign In</button>
     </div>
-    <div style="text-align:center; margin-top:16px; font-size:11px; color:var(--muted);">Build 2026-08-28-03</div>
+    <div style="text-align:center; margin-top:16px; font-size:11px; color:var(--muted);">Build 2026-08-28-04</div>
   </div>
 </div>
 
@@ -493,7 +493,7 @@
         <div style="color:var(--muted); font-size:13px; margin-top:2px;" id="profilePosition">Housekeeping Attendant</div>
         <div style="color:var(--muted); font-size:12px; margin-top:10px; font-family:var(--mono);" id="profileHotel">PRIME ASIA HOTEL</div>
         <button class="btn ghost" style="margin-top:20px;" onclick="doLogout()">Sign Out</button>
-        <div style="text-align:center; margin-top:16px; font-size:11px; color:var(--muted);">Build 2026-08-28-03</div>
+        <div style="text-align:center; margin-top:16px; font-size:11px; color:var(--muted);">Build 2026-08-28-04</div>
       </div>
     </div>
   </main>
@@ -704,8 +704,12 @@
   <div class="overlay" id="hotelOverviewOverlay" onclick="closeHotelOverviewOnBg(event)">
     <div class="sheet" style="max-height:85vh; overflow-y:auto;">
       <div class="sheet-handle"></div>
-      <div class="sheet-title">Hotel Overview</div>
+      <div class="sheet-title">Reports</div>
       <div style="display:flex; gap:8px; margin-top:14px;">
+        <button class="btn ghost" id="hoTabOverview" style="width:auto; flex:1; padding:9px 10px; font-size:13px;" onclick="setHotelOverviewTab('overview')">Hotel Overview</button>
+        <button class="btn ghost" id="hoTabDept" style="width:auto; flex:1; padding:9px 10px; font-size:13px;" onclick="setHotelOverviewTab('department')">Department Performance</button>
+      </div>
+      <div style="display:flex; gap:8px; margin-top:8px;">
         <button class="btn ghost" id="hoRangeToday" style="width:auto; flex:1; padding:9px 10px; font-size:13px;" onclick="setHotelOverviewRange('today')">Today</button>
         <button class="btn ghost" id="hoRangeWeek" style="width:auto; flex:1; padding:9px 10px; font-size:13px;" onclick="setHotelOverviewRange('week')">7 Days</button>
         <button class="btn ghost" id="hoRangeMonth" style="width:auto; flex:1; padding:9px 10px; font-size:13px;" onclick="setHotelOverviewRange('month')">30 Days</button>
@@ -2803,12 +2807,18 @@ let checkedInGuests = [];
 let currentRoomDetailStayId = null;
 
 let hotelOverviewRange = 'week';
+let hotelOverviewTab = 'overview';
 
 window.openHotelOverview = function(){
   loadHotelOverview();
   document.getElementById('hotelOverviewOverlay').classList.add('open');
 };
 function closeHotelOverviewOnBg(e){ if(e.target.id==='hotelOverviewOverlay') document.getElementById('hotelOverviewOverlay').classList.remove('open'); }
+
+window.setHotelOverviewTab = function(tab){
+  hotelOverviewTab = tab;
+  loadHotelOverview();
+};
 
 window.setHotelOverviewRange = function(range){
   hotelOverviewRange = range;
@@ -2832,6 +2842,13 @@ function fmtMinutes(mins){
 }
 
 async function loadHotelOverview(){
+  [['hoTabOverview','overview'],['hoTabDept','department']].forEach(([id, key]) => {
+    const btn = document.getElementById(id);
+    const on = key === hotelOverviewTab;
+    btn.style.background = on ? 'var(--blue)' : '';
+    btn.style.color = on ? '#fff' : '';
+    btn.style.borderColor = on ? 'var(--blue)' : 'var(--line)';
+  });
   ['today','week','month'].forEach(r => {
     const btn = document.getElementById('hoRange' + r.charAt(0).toUpperCase() + r.slice(1));
     const on = r === hotelOverviewRange;
@@ -2843,6 +2860,11 @@ async function loadHotelOverview(){
   const body = document.getElementById('hotelOverviewBody');
   body.innerHTML = '<p style="color:var(--muted); font-size:13px;">Loading…</p>';
 
+  if (hotelOverviewTab === 'department') loadDepartmentPerformance(body);
+  else loadHotelOverviewSummary(body);
+}
+
+async function loadHotelOverviewSummary(body){
   const { start, end } = hotelOverviewBounds(hotelOverviewRange);
   const { data, error } = await supabase.rpc('get_hotel_overview_stats', {
     p_start: start.toISOString(), p_end: end.toISOString()
@@ -2875,6 +2897,30 @@ async function loadHotelOverview(){
       `).join('')}
     </div>
   `;
+}
+
+async function loadDepartmentPerformance(body){
+  const { start, end } = hotelOverviewBounds(hotelOverviewRange);
+  const { data, error } = await supabase.rpc('get_department_performance_stats', {
+    p_start: start.toISOString(), p_end: end.toISOString()
+  });
+  if (error || !data){
+    console.error(error);
+    body.innerHTML = '<p style="color:var(--muted); font-size:13px;">Couldn\u2019t load department performance \u2014 try again.</p>';
+    return;
+  }
+  const rows = data.filter(d => d.total_cases > 0);
+  body.innerHTML = rows.length ? rows.map(d => `
+    <div style="background:var(--surface); border:1.5px solid var(--line); border-radius:14px; padding:14px 16px; margin-bottom:10px;">
+      <div style="font-weight:800; font-size:15px; margin-bottom:10px;">${d.department_name} <span style="color:var(--muted); font-weight:600; font-size:12px;">\u00b7 ${d.total_cases} case${d.total_cases === 1 ? '' : 's'}</span></div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; font-size:12px;">
+        <div><div style="font-weight:800; font-size:17px;">${d.completion_rate === null ? '\u2014' : d.completion_rate + '%'}</div><div style="color:var(--muted);">Completion</div></div>
+        <div><div style="font-weight:800; font-size:17px;">${fmtMinutes(d.avg_response_minutes)}</div><div style="color:var(--muted);">Avg Response</div></div>
+        <div><div style="font-weight:800; font-size:17px;">${fmtMinutes(d.avg_resolution_minutes)}</div><div style="color:var(--muted);">Avg Resolution</div></div>
+        <div><div style="font-weight:800; font-size:17px;">${d.still_open}</div><div style="color:var(--muted);">Still Open</div></div>
+      </div>
+    </div>
+  `).join('') : '<p style="color:var(--muted); font-size:13px;">No department activity in this period.</p>';
 }
 
 async function openCheckedInGuests(){
@@ -4093,7 +4139,7 @@ Object.assign(window, {
   chooseAnnounce, closeAnnounceOnBg, submitAnnouncement, removeAnnouncement,
   chooseGuestStay, closeGuestStayOnBg, closeGuestStayPinOnBg, submitGuestStay,
   openGuestConvo, closeGuestConvoOnBg, sendGuestConvoReply,
-  openHotelOverview, closeHotelOverviewOnBg, setHotelOverviewRange,
+  openHotelOverview, closeHotelOverviewOnBg, setHotelOverviewRange, setHotelOverviewTab,
   openCheckedInGuests, closeCheckedInOnBg, checkOutGuest,
   renderCheckedInList, openRoomDetail, closeRoomDetailOnBg, extendStay, showCheckOutConfirm, hideCheckOutConfirm,
   showOverdueConfirm, hideOverdueConfirm, checkOutAllOverdue,
