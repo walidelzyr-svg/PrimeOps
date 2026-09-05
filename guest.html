@@ -816,7 +816,8 @@ window.submitGuestRequest = async function(deptCode, label, extraDetail){
     p_title: title,
     p_detail_type: label,
     p_description: extraDetail || null,
-    p_asset_label: guestDisplayLabel()
+    p_asset_label: guestDisplayLabel(),
+    p_description_translated: null
   });
   if (error || !ok){
     console.error(error);
