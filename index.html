@@ -1731,8 +1731,7 @@ async function loadEndorsements(){
   const { data: histData, error: histErr } = await supabase
     .from('endorsement_acks')
     .select('acknowledged_at, member_id, reply_text, endorsements(*)')
-    .order('acknowledged_at', { ascending: false })
-    .limit(100);
+    .order('acknowledged_at', { ascending: false });
   if (histErr) console.error(histErr);
   endorsementHistory = histData || [];
 
@@ -2035,15 +2034,6 @@ function isToday(dateStr){
   return phDay(dateStr) === phDay(new Date());
 }
 
-function withinLastNDays(ts, n){
-  // Calendar-day based (PH time), same semantics as the Today/Yesterday
-  // grouping below -- "last 3 days" means today + the previous 2 PH
-  // calendar days, not a rolling 72-hour window.
-  if (!ts) return false;
-  const cutoff = phDay(new Date(Date.now() - (n - 1) * 24 * 60 * 60 * 1000));
-  return phDay(ts) >= cutoff; // 'YYYY-MM-DD' strings compare correctly as text
-}
-
 function dateGroupLabel(ts){
   const day = phDay(ts);
   if (day === phDay(new Date())) return 'Today';
@@ -2200,7 +2190,7 @@ function render(){
     </div>
   `) || `<div class="empty">No completed items yet today.</div>`;
 
-  const guestHistory = history.filter(c => c.guest_stay_id && withinLastNDays(c.verified_at || c.created_at, 3));
+  const guestHistory = history.filter(c => c.guest_stay_id);
   const guestHistoryCountEl = document.getElementById('guestHistoryCount');
   if (guestHistoryCountEl) guestHistoryCountEl.textContent = guestHistory.length || '';
   document.getElementById('guestHistoryList').innerHTML =
@@ -2208,7 +2198,7 @@ function render(){
       guestHistory.slice().sort((a,b)=> new Date(b.verified_at||b.created_at) - new Date(a.verified_at||a.created_at)),
       h => h.verified_at || h.created_at,
       guestHistoryCardHtml
-    ) || `<div class="empty">No guest requests or orders in the last 3 days.</div>`;
+    ) || `<div class="empty">No guest requests or orders yet.</div>`;
 
   if (hasHotelView()) renderGM();
 }
