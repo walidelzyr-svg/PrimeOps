@@ -2649,7 +2649,6 @@ async function submitDM(){
         message: dmState.message,
         follow_up_label: null,
         created_by: currentMember?.id || null,
-        status: 'open',
         attachment_url: dmState.attachmentUrls[0] || null,
         attachment_urls: dmState.attachmentUrls.length ? dmState.attachmentUrls : null
       }]
@@ -2661,7 +2660,6 @@ async function submitDM(){
         message: dmState.message,
         follow_up_label: null,
         created_by: currentMember?.id || null,
-        status: 'open',
         attachment_url: dmState.attachmentUrls[0] || null,
         attachment_urls: dmState.attachmentUrls.length ? dmState.attachmentUrls : null
       }));
@@ -3446,14 +3444,13 @@ async function submitEndorsement(followUpLabel){
     message: endState.message,
     follow_up_label: followUpLabel,
     created_by: currentMember?.id || null,
-    status: 'open',
     attachment_url: endState.attachmentUrls[0] || null,
     attachment_urls: endState.attachmentUrls.length ? endState.attachmentUrls : null
   }));
   const { error } = await supabase.from('endorsements').insert(rows);
   if (error){
     console.error(error);
-    toast("Couldn't submit — check your connection and try again");
+    toast(`DEBUG: ${error.message || error.hint || error.details || JSON.stringify(error)}`);
     return;
   }
   document.getElementById('endorseOverlay').classList.remove('open');
