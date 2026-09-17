@@ -3372,25 +3372,23 @@ function endorsementPickerList(){
 }
 function buildEndDeptGrid(){
   const list = endorsementPickerList();
-  document.getElementById('endDeptGrid').innerHTML = list.map((d,i) => {
+  document.getElementById('endDeptGrid').innerHTML = list.map((d) => {
     const isOwn = d.id === currentMember?.department_id;
     const selected = endState.departmentIds.includes(d.id);
     const label = d.special ? `⭐ ${d.name}` : (isOwn ? `${d.name} (My Team)` : d.name);
-    return `<div class="opt${selected ? ' sel' : ''}" onclick="selectEndDeptIdx(${i})">${selected ? '✅ ' : ''}${label}</div>`;
+    return `<div class="opt${selected ? ' sel' : ''}" onclick="selectEndDeptIdx('${d.id}', '${d.name.replace(/'/g,"\\'")}')">${selected ? '✅ ' : ''}${label}</div>`;
   }).join('');
   const btn = document.getElementById('endDeptNextBtn');
   if (btn) btn.disabled = endState.departmentIds.length === 0;
 }
-function selectEndDeptIdx(i){
-  const d = endorsementPickerList()[i];
-  if (!d) return;
-  const idx = endState.departmentIds.indexOf(d.id);
+function selectEndDeptIdx(id, name){
+  const idx = endState.departmentIds.indexOf(id);
   if (idx >= 0){
     endState.departmentIds.splice(idx, 1);
     endState.departmentNames.splice(idx, 1);
   } else {
-    endState.departmentIds.push(d.id);
-    endState.departmentNames.push(d.name);
+    endState.departmentIds.push(id);
+    endState.departmentNames.push(name);
   }
   buildEndDeptGrid();
 }
@@ -3450,7 +3448,7 @@ async function submitEndorsement(followUpLabel){
   const { error } = await supabase.from('endorsements').insert(rows);
   if (error){
     console.error(error);
-    toast(`DEBUG: ${error.message || error.hint || error.details || JSON.stringify(error)}`);
+    toast("Couldn't submit — check your connection and try again");
     return;
   }
   document.getElementById('endorseOverlay').classList.remove('open');
