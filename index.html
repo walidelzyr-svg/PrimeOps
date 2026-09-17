@@ -1841,9 +1841,16 @@ function endorsementCardHtml(e){
   // to GM (via this DM tool or the Endorsement flow's GM option) gets
   // the same reply prompt as any other DM, since the whole point is
   // getting an actual answer, not just an acknowledgment tap.
+  // GM is excluded from the plain acknowledge button for OTHER
+  // departments' endorsements (GM sees those via oversight visibility,
+  // not because they're actually GM's to act on) -- but GM's own real
+  // team_members row does belong to a department ("General Manager"),
+  // and endorsements sent there are genuinely GM's to acknowledge, so
+  // that one case is carved back in rather than excluded.
+  const isRealDeptMember = currentMember?.department_id && e.to_department_id === currentMember.department_id;
   const ackBtn = isMyPersonalTarget || (e.to_gm && isGM())
     ? `<button class="btn primary" onclick="openDMReply('${e.id}')">REPLY & MARK AS DONE</button>`
-    : (isIncoming && !isGM() && !e.to_gm
+    : (isIncoming && !e.to_gm && (!isGM() || isRealDeptMember)
         ? `<button class="btn primary" onclick="acknowledgeEndorsement('${e.id}')">MARK AS DONE</button>`
         : '');
 
@@ -3367,8 +3374,13 @@ function closeEndorseOnBg(e){ if(e.target.id==='endorseOverlay') document.getEle
 
 function endorsementPickerList(){
   // GM has no department_id, so they can't appear via allDepartments —
-  // this special sentinel entry represents them distinctly.
-  return [{ id: 'GM', name: 'General Manager', special: true }, ...allDepartments];
+  // this special sentinel entry represents them distinctly. The real
+  // "General Manager" department row (used elsewhere for case routing)
+  // is deliberately excluded here: offering both created two
+  // confusingly identical-looking options, and endorsements sent to
+  // the real department row never reached anyone normally (see the
+  // ackBtn fix below) — the sentinel is the one correct path to GM.
+  return [{ id: 'GM', name: 'General Manager', special: true }, ...allDepartments.filter(d => d.name !== 'General Manager')];
 }
 function buildEndDeptGrid(){
   const list = endorsementPickerList();
