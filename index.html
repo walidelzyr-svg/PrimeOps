@@ -391,7 +391,7 @@
     <div class="login-btn">
       <button class="btn primary" onclick="doLogin()">Sign In</button>
     </div>
-    <div style="text-align:center; margin-top:16px; font-size:11px; color:var(--muted);">Build 2026-09-05-01</div>
+    <div style="text-align:center; margin-top:16px; font-size:11px; color:var(--muted);">Build 2026-10-04-01</div>
   </div>
 </div>
 
@@ -493,7 +493,7 @@
         <div style="color:var(--muted); font-size:13px; margin-top:2px;" id="profilePosition">Housekeeping Attendant</div>
         <div style="color:var(--muted); font-size:12px; margin-top:10px; font-family:var(--mono);" id="profileHotel">PRIME ASIA HOTEL</div>
         <button class="btn ghost" style="margin-top:20px;" onclick="doLogout()">Sign Out</button>
-        <div style="text-align:center; margin-top:16px; font-size:11px; color:var(--muted);">Build 2026-09-05-01</div>
+        <div style="text-align:center; margin-top:16px; font-size:11px; color:var(--muted);">Build 2026-10-04-01</div>
       </div>
     </div>
   </main>
@@ -1612,8 +1612,16 @@ async function loadCases(){
   }
 
   const [activeRes, doneRes] = await Promise.all([activeQ, doneQ]);
-  if (activeRes.error || doneRes.error){ console.error(activeRes.error || doneRes.error); return; }
-  const newCases = [...(activeRes.data || []), ...(doneRes.data || [])];
+  // Active work is what staff need to act on — a failed history fetch
+  // must never block it. Previously ANY error here returned early, so a
+  // slow completed-history query left a brand-new user (with no earlier
+  // successful load to fall back on) with an empty queue: nothing to
+  // accept, nothing to verify. Now: active refreshes regardless; if
+  // history fails, keep whatever completed items were already on screen.
+  if (activeRes.error){ console.error(activeRes.error); return; }
+  if (doneRes.error) console.error(doneRes.error);
+  const doneData = doneRes.error ? cases.filter(c => c.status === 'completed') : (doneRes.data || []);
+  const newCases = [...(activeRes.data || []), ...doneData];
 
   // Sound alert for genuinely new arrivals — never on first load (that's
   // not an "arrival," that's just opening the app), never for something
