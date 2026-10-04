@@ -391,7 +391,7 @@
     <div class="login-btn">
       <button class="btn primary" onclick="doLogin()">Sign In</button>
     </div>
-    <div style="text-align:center; margin-top:16px; font-size:11px; color:var(--muted);">Build 2026-10-04-01</div>
+    <div style="text-align:center; margin-top:16px; font-size:11px; color:var(--muted);">Build 2026-10-04-02</div>
   </div>
 </div>
 
@@ -493,7 +493,7 @@
         <div style="color:var(--muted); font-size:13px; margin-top:2px;" id="profilePosition">Housekeeping Attendant</div>
         <div style="color:var(--muted); font-size:12px; margin-top:10px; font-family:var(--mono);" id="profileHotel">PRIME ASIA HOTEL</div>
         <button class="btn ghost" style="margin-top:20px;" onclick="doLogout()">Sign Out</button>
-        <div style="text-align:center; margin-top:16px; font-size:11px; color:var(--muted);">Build 2026-10-04-01</div>
+        <div style="text-align:center; margin-top:16px; font-size:11px; color:var(--muted);">Build 2026-10-04-02</div>
       </div>
     </div>
   </main>
@@ -696,6 +696,22 @@
           <div>Checked-in Guests</div>
           <div style="font-size:11px; color:var(--muted); font-weight:400; margin-top:2px;">View who currently has guest platform access, check out early</div>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Department Overview: each department's own version of the Hotel Overview -->
+  <div class="overlay" id="deptOverviewOverlay" onclick="closeDeptOverviewOnBg(event)">
+    <div class="sheet" style="max-height:85vh; overflow-y:auto;">
+      <div class="sheet-handle"></div>
+      <div class="sheet-title" id="deptOverviewTitle">Department Overview</div>
+      <div style="display:flex; gap:8px; margin-top:14px;">
+        <button class="btn ghost" id="doRangeToday" style="width:auto; flex:1; padding:9px 10px; font-size:13px;" onclick="setDeptOverviewRange('today')">Today</button>
+        <button class="btn ghost" id="doRangeWeek" style="width:auto; flex:1; padding:9px 10px; font-size:13px;" onclick="setDeptOverviewRange('week')">7 Days</button>
+        <button class="btn ghost" id="doRangeMonth" style="width:auto; flex:1; padding:9px 10px; font-size:13px;" onclick="setDeptOverviewRange('month')">30 Days</button>
+      </div>
+      <div id="deptOverviewBody" style="margin-top:16px;">
+        <p style="color:var(--muted); font-size:13px;">Loading…</p>
       </div>
     </div>
   </div>
@@ -2186,6 +2202,7 @@ function render(){
     ${currentMember?.department_id === CAFE_DEPT_ID ? sumCard(s.fbOrdersCoppa,'Active Coppa Café Orders','fb_orders_coppa') : ''}
     ${sumCard(s.feedback,'Guest Feedback','feedback')}
     ${!hasHotelView() ? `<div class="sumcard" onclick="openStaffCheckedIn()" style="cursor:pointer;"><div class="n">\ud83d\udd11</div><div class="l">Checked-in Guests</div></div>` : ''}
+    ${!isGM() && currentMember?.department_id ? `<div class="sumcard" onclick="openDeptOverview()" style="cursor:pointer;"><div class="n">📊</div><div class="l">Dept Overview</div></div>` : ''}
   `;
 
   document.getElementById('historyList').innerHTML =
@@ -2823,6 +2840,79 @@ let currentGuestConvoCaseId = null;
 
 let checkedInGuests = [];
 let currentRoomDetailStayId = null;
+
+// ── Department Overview ──────────────────────────────────────────────
+// Each department's own version of the Hotel Overview. Which department
+// is shown is decided SERVER-SIDE from the login (get_department_overview),
+// never sent from here, so staff can only ever see their own team.
+let deptOverviewRange = 'week';
+let deptOverviewSeq = 0; // ignore slower, older responses if ranges are tapped quickly
+
+function escHtml(s){
+  return String(s ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+}
+
+function openDeptOverview(){
+  deptOverviewRange = 'week';
+  loadDeptOverview();
+  document.getElementById('deptOverviewOverlay').classList.add('open');
+}
+function closeDeptOverviewOnBg(e){ if(e.target.id==='deptOverviewOverlay') document.getElementById('deptOverviewOverlay').classList.remove('open'); }
+function setDeptOverviewRange(range){
+  deptOverviewRange = range;
+  loadDeptOverview();
+}
+
+async function loadDeptOverview(){
+  ['today','week','month'].forEach(r => {
+    const btn = document.getElementById('doRange' + r.charAt(0).toUpperCase() + r.slice(1));
+    const on = r === deptOverviewRange;
+    btn.style.background = on ? 'var(--blue)' : '';
+    btn.style.color = on ? '#fff' : '';
+    btn.style.borderColor = on ? 'var(--blue)' : 'var(--line)';
+  });
+
+  const body = document.getElementById('deptOverviewBody');
+  body.innerHTML = '<p style="color:var(--muted); font-size:13px;">Loading…</p>';
+
+  const seq = ++deptOverviewSeq;
+  const { start, end } = hotelOverviewBounds(deptOverviewRange);
+  // All three arguments always passed explicitly (see Sep 5 overload bug).
+  const { data, error } = await supabase.rpc('get_department_overview', {
+    p_start: start.toISOString(), p_end: end.toISOString(), p_department_id: null
+  });
+  if (seq !== deptOverviewSeq) return;
+  if (error || !data || !data[0]){
+    console.error(error);
+    body.innerHTML = '<p style="color:var(--muted); font-size:13px;">Couldn’t load the overview — try again.</p>';
+    return;
+  }
+  const s = data[0];
+  document.getElementById('deptOverviewTitle').textContent = `${s.dept_name || 'Department'} Overview`;
+  const types = Array.isArray(s.top_types) ? s.top_types : [];
+
+  body.innerHTML = `
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+      <div class="gm-stat"><span class="e">📋</span><div class="n">${s.cases_received}</div><div class="l">Cases Received</div></div>
+      <div class="gm-stat"><span class="e">✅</span><div class="n">${s.completion_rate === null ? '—' : s.completion_rate + '%'}</div><div class="l">Completion Rate</div></div>
+      <div class="gm-stat"><span class="e">⏱️</span><div class="n">${fmtMinutes(s.avg_response_minutes)}</div><div class="l">Avg Response Time</div></div>
+      <div class="gm-stat"><span class="e">🏁</span><div class="n">${fmtMinutes(s.avg_resolution_minutes)}</div><div class="l">Avg Resolution Time</div></div>
+      <div class="gm-stat"><span class="e">🔓</span><div class="n">${s.open_now}</div><div class="l">Open Now</div></div>
+      <div class="gm-stat"><span class="e">🔴</span><div class="n" style="color:${s.at_risk > 0 ? 'var(--red)' : 'var(--ink)'};">${s.at_risk}</div><div class="l">At Risk</div></div>
+      <div class="gm-stat"><span class="e">🛎️</span><div class="n">${s.guest_cases}</div><div class="l">Guest Requests &amp; Orders</div></div>
+      <div class="gm-stat"><span class="e">📤</span><div class="n">${s.requests_sent}</div><div class="l">Requests Sent to Other Depts</div></div>
+    </div>
+    <p style="color:var(--muted); font-size:11px; margin:10px 0 0;">"Open Now" and "At Risk" are always live — they don't follow the date range. "At Risk" means open items that have gone past their expected time.</p>
+    <div style="font-weight:800; margin:20px 0 10px; font-size:14px;">Top Task Types</div>
+    <div>
+      ${types.length ? types.map(t => `
+        <div style="display:flex; justify-content:space-between; padding:10px 4px; border-bottom:1px solid var(--line); font-size:14px;">
+          <span>${OBS_EMOJI[t.label] || '📝'} ${escHtml(t.label)}</span><span style="font-weight:700; font-family:var(--mono);">${t.count}</span>
+        </div>
+      `).join('') : '<p style="color:var(--muted); font-size:13px;">No tasks in this period.</p>'}
+    </div>
+  `;
+}
 
 let hotelOverviewRange = 'week';
 let hotelOverviewTab = 'overview';
@@ -4254,6 +4344,7 @@ Object.assign(window, {
   chooseGuestStay, closeGuestStayOnBg, closeGuestStayPinOnBg, submitGuestStay,
   openGuestConvo, closeGuestConvoOnBg, sendGuestConvoReply,
   openStaffCheckedIn, closeStaffCheckedInOnBg, renderStaffCheckedInList,
+  openDeptOverview, closeDeptOverviewOnBg, setDeptOverviewRange,
   openHotelOverview, closeHotelOverviewOnBg, setHotelOverviewRange, setHotelOverviewTab,
   openCheckedInGuests, closeCheckedInOnBg, checkOutGuest,
   renderCheckedInList, openRoomDetail, closeRoomDetailOnBg, extendStay, showCheckOutConfirm, hideCheckOutConfirm,
