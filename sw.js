@@ -1,4 +1,4 @@
-const CACHE = 'primeops-v6';
+const CACHE = 'primeops-v7';
 const FILES = ['./index.html', './manifest.json', './icon.svg'];
 
 self.addEventListener('install', (e) => {

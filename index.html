@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://esm.sh; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.supabase.co; font-src 'self' data:; connect-src 'self' https://*.supabase.co wss://*.supabase.co; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'" />
 <meta name="theme-color" content="#2451E8" />
 <title>PrimeOps</title>
 <link rel="manifest" href="manifest.json" />
@@ -391,7 +392,7 @@
     <div class="login-btn">
       <button class="btn primary" onclick="doLogin()">Sign In</button>
     </div>
-    <div style="text-align:center; margin-top:16px; font-size:11px; color:var(--muted);">Build 2026-10-04-02</div>
+    <div style="text-align:center; margin-top:16px; font-size:11px; color:var(--muted);">Build 2026-10-12-01</div>
   </div>
 </div>
 
@@ -493,7 +494,7 @@
         <div style="color:var(--muted); font-size:13px; margin-top:2px;" id="profilePosition">Housekeeping Attendant</div>
         <div style="color:var(--muted); font-size:12px; margin-top:10px; font-family:var(--mono);" id="profileHotel">PRIME ASIA HOTEL</div>
         <button class="btn ghost" style="margin-top:20px;" onclick="doLogout()">Sign Out</button>
-        <div style="text-align:center; margin-top:16px; font-size:11px; color:var(--muted);">Build 2026-10-04-02</div>
+        <div style="text-align:center; margin-top:16px; font-size:11px; color:var(--muted);">Build 2026-10-12-01</div>
       </div>
     </div>
   </main>
@@ -1247,10 +1248,38 @@ window.addEventListener('focus', () => {
   unreadBadgeCount = 0;
   document.title = baseTitle;
 });
+// Stale-client guard: a device that keeps the app open for days can end up
+// running old code against a changed backend (the root cause of the Sept
+// outage). On each foreground, cheaply check the deployed build marker and, if
+// it moved, show a one-tap refresh so no one is left on a stale version.
+const APP_BUILD = '2026-10-12-01';
+let staleBannerShown = false;
+async function checkForNewBuild(){
+  if (staleBannerShown) return;
+  try {
+    const res = await fetch('./index.html', { cache: 'no-store', headers: { Range: 'bytes=0-30000' } });
+    const text = await res.text();
+    const m = text.match(/Build (\d{4}-\d{2}-\d{2}-\d{2})/);
+    if (m && m[1] && m[1] !== APP_BUILD){
+      staleBannerShown = true;
+      const bar = document.createElement('div');
+      bar.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:99999;background:#2451E8;color:#fff;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:14px;box-shadow:0 -2px 12px rgba(0,0,0,.2)';
+      bar.innerHTML = '<span>A new version of PrimeOps is available.</span>';
+      const btn = document.createElement('button');
+      btn.textContent = 'Refresh';
+      btn.style.cssText = 'background:#fff;color:#2451E8;border:none;border-radius:8px;padding:8px 16px;font-weight:600';
+      btn.onclick = () => location.reload();
+      bar.appendChild(btn);
+      document.body.appendChild(bar);
+    }
+  } catch (e) { /* offline or range unsupported — ignore, try again next foreground */ }
+}
+
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible'){
     unreadBadgeCount = 0;
     document.title = baseTitle;
+    checkForNewBuild();
   }
 });
 
@@ -1323,20 +1352,12 @@ async function doLogin(){
     return;
   }
 
-  // Onboarding password used? Force a personal one before entering.
-  if (password === GENERIC_PASSWORD){
-    pendingSession = data.session;
-    document.getElementById('loginGate').style.display = 'none';
-    document.getElementById('passwordGate').style.display = 'flex';
-    document.getElementById('newPassword').focus();
-    return;
-  }
-
+  // First-login / onboarding-password enforcement is server-side now: onSignedIn reads
+  // the member's must_change_password flag and shows the password gate when it's set.
   await onSignedIn(data.session);
 }
 
 let pendingSession = null;
-const GENERIC_PASSWORD = 'PrimeAsia@2026';
 
 async function doSetPassword(){
   const p1 = document.getElementById('newPassword').value;
@@ -1354,18 +1375,15 @@ async function doSetPassword(){
     errBox.classList.add('show');
     return;
   }
-  if (p1 === GENERIC_PASSWORD){
-    errBox.textContent = 'Choose a password different from the shared one.';
-    errBox.classList.add('show');
-    return;
-  }
-
   const { error } = await supabase.auth.updateUser({ password: p1 });
   if (error){
     errBox.textContent = error.message;
     errBox.classList.add('show');
     return;
   }
+  // Clear the server-side flag so the gate doesn't reappear on next login.
+  await supabase.rpc('clear_my_password_flag');
+  if (currentMember) currentMember.must_change_password = false;
 
   document.getElementById('passwordGate').style.display = 'none';
   toast('Password set — welcome to PrimeOps');
@@ -1389,23 +1407,40 @@ async function onSignedIn(session){
     .eq('email', session.user.email)
     .maybeSingle();
 
-  if (!member){
-    // Auth account exists but no team_members row matches this email —
-    // without a department, filtering would silently show everything.
+  if (!member || member.active === false){
+    // Either no team_members row matches this email (without a department,
+    // filtering would silently show everything), or the account has been
+    // deactivated. In both cases deny entry. The database's RLS now also
+    // denies a deactivated member any data, so this is defence in depth.
     await supabase.auth.signOut();
     document.getElementById('loginGate').style.display = 'flex';
     document.getElementById('app').style.display = 'none';
     const errBox = document.getElementById('loginError');
     if (errBox){
-      errBox.textContent = 'Your account is not fully set up yet. Ask the GM to add you to the team list with this exact email.';
+      errBox.textContent = member && member.active === false
+        ? 'This account has been deactivated. Please contact the GM.'
+        : 'Your account is not fully set up yet. Ask the GM to add you to the team list with this exact email.';
       errBox.classList.add('show');
     }
     return;
   }
 
+  currentMember = member;
+
+  // F-07: still on the onboarding password? Force a personal one before entering.
+  // Server-side flag, so reopening the app cannot skip it.
+  if (member.must_change_password){
+    pendingSession = session;
+    document.getElementById('loginGate').style.display = 'none';
+    document.getElementById('app').style.display = 'none';
+    document.getElementById('passwordGate').style.display = 'flex';
+    const np = document.getElementById('newPassword');
+    if (np) np.focus();
+    return;
+  }
+
   document.getElementById('loginGate').style.display = 'none';
   document.getElementById('app').style.display = 'block';
-  currentMember = member;
   init();
 }
 
@@ -1581,10 +1616,10 @@ function descLine(c){
   if (!c.description) return '';
   const shown = c.description_translated || c.description;
   const original = (c.description_translated && c.description_translated !== c.description)
-    ? `<div class="desc" style="color:var(--muted); font-size:12px; margin-top:2px;">Original: “${c.description}”</div>`
+    ? `<div class="desc" style="color:var(--muted); font-size:12px; margin-top:2px;">Original: “${escHtml(c.description)}”</div>`
     : '';
-  if (shown.length <= 80) return `<div class="desc">“${shown}”</div>${original}`;
-  return `<details class="desc-details"><summary>📝 View note</summary><div class="desc">“${shown}”</div>${original}</details>`;
+  if (shown.length <= 80) return `<div class="desc">“${escHtml(shown)}”</div>${original}`;
+  return `<details class="desc-details"><summary>📝 View note</summary><div class="desc">“${escHtml(shown)}”</div>${original}</details>`;
 }
 
 function timesLine(c){
@@ -1751,13 +1786,30 @@ async function loadEndorsements(){
   endorsementsEverLoaded = true;
 
   // History: every acknowledgment event, hotel-wide, newest first —
-  // one row per person who acknowledged, not one row per endorsement
-  const { data: histData, error: histErr } = await supabase
+  // one row per person who acknowledged, not one row per endorsement.
+  // Fetched as two lightweight queries (acks, then their endorsements)
+  // instead of one embedded join over the whole table: the embedded
+  // `endorsements(*)` fan-out over thousands of ack rows was timing out
+  // server-side (statement timeout). Capped at the most recent 500 ack
+  // events — weeks of history — which loads instantly; older events can
+  // be surfaced with a "load more"/date filter later if needed.
+  const HISTORY_LIMIT = 500;
+  const { data: ackData, error: histErr } = await supabase
     .from('endorsement_acks')
-    .select('acknowledged_at, member_id, reply_text, endorsements(*)')
-    .order('acknowledged_at', { ascending: false });
+    .select('acknowledged_at, member_id, reply_text, endorsement_id')
+    .order('acknowledged_at', { ascending: false })
+    .limit(HISTORY_LIMIT);
   if (histErr) console.error(histErr);
-  endorsementHistory = histData || [];
+  const histAcks = ackData || [];
+  const histEndIds = [...new Set(histAcks.map(a => a.endorsement_id).filter(Boolean))];
+  let histEndMap = {};
+  if (histEndIds.length){
+    const { data: endData, error: endErr } = await supabase
+      .from('endorsements').select('*').in('id', histEndIds);
+    if (endErr) console.error(endErr);
+    (endData || []).forEach(e => { histEndMap[e.id] = e; });
+  }
+  endorsementHistory = histAcks.map(a => ({ ...a, endorsements: histEndMap[a.endorsement_id] || {} }));
 
   renderEndorsements();
   renderEndorsementHistory();
@@ -1791,7 +1843,7 @@ function renderEndorsementHistory(){
       return `
     <div class="history-row">
       <div class="l">
-        <div class="t">📝 ${e.message} ${fileLinks(e.attachment_urls, e.attachment_url, '📎')}</div>
+        <div class="t">📝 ${escHtml(e.message)} ${fileLinks(e.attachment_urls, e.attachment_url, '📎')}</div>
         <div class="a">${route}</div>
         <div class="times">Sent ${fmtTime(e.created_at)} · ${ackLine}${closedLine}</div>
       </div>
@@ -1928,7 +1980,7 @@ function endorsementCardHtml(e){
         <div class="card-obs">
           <div class="emoji">📝</div>
           <div class="lines">
-            <div class="title">${e.message} ${fileLinks(e.attachment_urls, e.attachment_url, '📎')}</div>
+            <div class="title">${escHtml(e.message)} ${fileLinks(e.attachment_urls, e.attachment_url, '📎')}</div>
             <div class="asset">${routeLine}</div>
           </div>
         </div>
@@ -2095,7 +2147,7 @@ function guestHistoryCardHtml(c){
     <div class="history-row">
       <div class="l">
         <div class="t">${OBS_EMOJI[c.detail_type]||'🙋'} ${c.detail_type || c.title}</div>
-        <div class="a">${c.asset_label}</div>
+        <div class="a">${escHtml(c.asset_label)}</div>
         ${timesLine(c)}
         ${descLine(c)}
         ${c.detail_type === 'F&B Order' ? `<button class="btn ghost" style="margin-top:8px;" onclick="openOrderDetails('${c.id}')">🧾 View Order</button>` : ''}
@@ -2212,8 +2264,8 @@ function render(){
       h => `
     <div class="history-row">
       <div class="l">
-        <div class="t">${OBS_EMOJI[h.detail_type]||'✅'} ${h.title}</div>
-        <div class="a">${h.asset_label}</div>
+        <div class="t">${OBS_EMOJI[h.detail_type]||'✅'} ${escHtml(h.title)}</div>
+        <div class="a">${escHtml(h.asset_label)}</div>
         ${timesLine(h)}
         ${descLine(h)}
         <div class="times">By ${memberName(h.created_by) || 'System'}${h.assigned_to ? ' · Done by ' + memberName(h.assigned_to) : ''} · Verified by ${memberName(h.verified_by) || '—'}</div>
@@ -2362,8 +2414,8 @@ function gmCardHtml(c){
         <div class="card-obs">
           <div class="emoji">${emoji}</div>
           <div class="lines">
-            <div class="title">${c.title} ${photoTag}</div>
-            <div class="asset">${c.asset_label}${reqLine}</div>
+            <div class="title">${escHtml(c.title)} ${photoTag}</div>
+            <div class="asset">${escHtml(c.asset_label)}${reqLine}</div>
           </div>
         </div>
         <div class="badge ${effP}">${badgeLabel}</div>
@@ -2374,10 +2426,10 @@ function gmCardHtml(c){
       </div>
       ${descLine(c)}
       ${timesLine(c)}
-      ${c.guest_satisfied !== null && c.guest_satisfied !== undefined ? `<div style="margin-top:8px; font-size:13px;">${c.guest_satisfied ? '👍' : '👎'} Guest feedback${c.guest_note ? ': "' + c.guest_note.replace(/</g,'&lt;') + '"' : ''}</div>` : ''}
-      ${c.status === 'rejected' && c.rejection_comment ? `<div style="margin-top:8px; font-size:13px; color:var(--red);">Rejected: "${c.rejection_comment.replace(/</g,'&lt;')}"</div>` : ''}
+      ${c.guest_satisfied !== null && c.guest_satisfied !== undefined ? `<div style="margin-top:8px; font-size:13px;">${c.guest_satisfied ? '👍' : '👎'} Guest feedback${c.guest_note ? ': "' + escHtml(c.guest_note) + '"' : ''}</div>` : ''}
+      ${c.status === 'rejected' && c.rejection_comment ? `<div style="margin-top:8px; font-size:13px; color:var(--red);">Rejected: "${escHtml(c.rejection_comment)}"</div>` : ''}
       ${c.status === 'cancelled' ? `<div style="margin-top:8px; font-size:13px; color:var(--muted);">Cancelled by guest</div>` : ''}
-      ${c.staff_reply ? `<div style="margin-top:8px; font-size:13px; color:var(--blue-ink);">Your reply: "${c.staff_reply.replace(/</g,'&lt;')}"</div>` : ''}
+      ${c.staff_reply ? `<div style="margin-top:8px; font-size:13px; color:var(--blue-ink);">Your reply: "${escHtml(c.staff_reply)}"</div>` : ''}
       ${c.guest_stay_id && c.detail_type !== 'Guest Message' && c.detail_type !== 'Late Check-out Request' && c.status === 'waiting'
         ? `<div style="display:flex; gap:8px;"><button class="btn primary" style="flex:1;" onclick="advance('${c.id}')">✅ Accept</button><button class="btn" style="flex:1; background:var(--red); color:#fff;" onclick="openReject('${c.id}')">❌ Reject</button></div>`
         : ''}
@@ -2458,8 +2510,8 @@ function cardHtml(c){
           <div class="card-obs">
             <div class="emoji">🙋</div>
             <div class="lines">
-              <div class="title">${c.title} ${photoTag}</div>
-              <div class="asset">${c.asset_label} · Sent to ${deptName(c.department_id)}</div>
+              <div class="title">${escHtml(c.title)} ${photoTag}</div>
+              <div class="asset">${escHtml(c.asset_label)} · Sent to ${deptName(c.department_id)}</div>
             </div>
           </div>
           <div class="badge ${effP}">${badgeLabel}</div>
@@ -2482,8 +2534,8 @@ function cardHtml(c){
         <div class="card-obs">
           <div class="emoji">${emoji}</div>
           <div class="lines">
-            <div class="title">${c.title} ${photoTag}</div>
-            <div class="asset">${c.asset_label}${fromLine}</div>
+            <div class="title">${escHtml(c.title)} ${photoTag}</div>
+            <div class="asset">${escHtml(c.asset_label)}${fromLine}</div>
           </div>
         </div>
         <div class="badge ${effP}">${badgeLabel}</div>
@@ -2494,10 +2546,10 @@ function cardHtml(c){
       </div>
       ${descLine(c)}
       ${timesLine(c)}
-      ${c.guest_satisfied !== null && c.guest_satisfied !== undefined ? `<div style="margin-top:8px; font-size:13px;">${c.guest_satisfied ? '👍' : '👎'} Guest feedback${c.guest_note ? ': "' + c.guest_note.replace(/</g,'&lt;') + '"' : ''}</div>` : ''}
-      ${c.status === 'rejected' && c.rejection_comment ? `<div style="margin-top:8px; font-size:13px; color:var(--red);">Rejected: "${c.rejection_comment.replace(/</g,'&lt;')}"</div>` : ''}
+      ${c.guest_satisfied !== null && c.guest_satisfied !== undefined ? `<div style="margin-top:8px; font-size:13px;">${c.guest_satisfied ? '👍' : '👎'} Guest feedback${c.guest_note ? ': "' + escHtml(c.guest_note) + '"' : ''}</div>` : ''}
+      ${c.status === 'rejected' && c.rejection_comment ? `<div style="margin-top:8px; font-size:13px; color:var(--red);">Rejected: "${escHtml(c.rejection_comment)}"</div>` : ''}
       ${c.status === 'cancelled' ? `<div style="margin-top:8px; font-size:13px; color:var(--muted);">Cancelled by guest</div>` : ''}
-      ${c.staff_reply ? `<div style="margin-top:8px; font-size:13px; color:var(--blue-ink);">Your reply: "${c.staff_reply.replace(/</g,'&lt;')}"</div>` : ''}
+      ${c.staff_reply ? `<div style="margin-top:8px; font-size:13px; color:var(--blue-ink);">Your reply: "${escHtml(c.staff_reply)}"</div>` : ''}
       ${c.detail_type === 'Late Check-out Request' && c.status === 'waiting'
         ? `<button class="btn primary" style="width:100%;" onclick="openReply('${c.id}')">💬 Reply</button>`
         : c.guest_stay_id && c.detail_type !== 'Guest Message' && c.status === 'waiting'
@@ -2513,11 +2565,18 @@ async function advance(id){
   const c = cases.find(x=>x.id===id);
   if(!c) return;
   if(c.status==='waiting'){
-    await supabase.from('cases').update({status:'in_progress', assigned_to: currentMember?.id || null, accepted_at: new Date().toISOString()}).eq('id', id);
+    // Guard on the current status so two people accepting at once can't both
+    // "win": only the update that still sees status='waiting' changes a row.
+    // assigned_to/accepted_at are set server-side by a trigger now.
+    const { data, error } = await supabase.from('cases')
+      .update({status:'in_progress'}).eq('id', id).eq('status','waiting').select('id');
+    if (error){ console.error(error); toast("Couldn't accept — check your connection and try again"); return; }
+    if (!data || !data.length){ toast('Already accepted by someone else'); await loadCases(); return; }
     toast(`Accepted — good luck, ${currentMember?.first_name || 'team'}`);
     await loadCases();
   } else if(c.status==='in_progress'){
-    await supabase.from('cases').update({status:'ready_verify'}).eq('id', id);
+    const { error } = await supabase.from('cases').update({status:'ready_verify'}).eq('id', id).eq('status','in_progress');
+    if (error){ console.error(error); toast("Couldn't update — check your connection and try again"); return; }
     toast('Marked in progress → ready for verification');
     await loadCases();
   } else if(c.status==='ready_verify'){
@@ -3117,7 +3176,7 @@ function renderStaffCheckedInList(){
     return `
     <div class="opt" style="padding:12px 14px; margin-top:8px; align-items:center; gap:12px; text-align:left;">
       <div style="flex:1;">
-        <div style="font-weight:700;">Room ${g.room_number} — ${g.guest_name}</div>
+        <div style="font-weight:700;">Room ${g.room_number} — ${escHtml(g.guest_name)}</div>
         <div style="font-size:11px; color:${overdue ? 'var(--red)' : 'var(--muted)'};">${g.arrival_date} → ${g.departure_date}${overdue ? ' · Departure date passed' : ''}</div>
       </div>
     </div>
@@ -3155,7 +3214,7 @@ function renderCheckedInList(){
     return `
     <div class="opt" style="padding:12px 14px; margin-top:8px; align-items:center; gap:12px; text-align:left; cursor:pointer;" onclick="openRoomDetail('${g.id}')">
       <div style="flex:1;">
-        <div style="font-weight:700;">Room ${g.room_number} — ${g.guest_name}</div>
+        <div style="font-weight:700;">Room ${g.room_number} — ${escHtml(g.guest_name)}</div>
         <div style="font-size:11px; color:${overdue ? 'var(--red)' : 'var(--muted)'};">${g.arrival_date} → ${g.departure_date}${overdue ? ' · Departure date passed' : ''}</div>
       </div>
       <span style="color:var(--muted);">›</span>
@@ -3191,7 +3250,7 @@ function openRoomDetail(stayId){
   currentRoomDetailStayId = stayId;
   const g = checkedInGuests.find(x => x.id === stayId);
   if (!g){ toast("Couldn't find that room — try reopening Checked-in Guests"); return; }
-  document.getElementById('roomDetailTitle').textContent = `Room ${g.room_number} — ${g.guest_name}`;
+  document.getElementById('roomDetailTitle').textContent = `Room ${g.room_number} — ${escHtml(g.guest_name)}`;
   document.getElementById('roomDetailDates').textContent = `${g.arrival_date} → ${g.departure_date}`;
   document.getElementById('roomDetailNewDate').value = g.departure_date;
 
@@ -3621,7 +3680,7 @@ function reqDeptNext(){
 
 function buildReqCategoryGrid(){
   document.getElementById('reqCategoryGrid').innerHTML = requestCategories.map((c,i) =>
-    `<div class="opt" onclick="selectReqCategoryIdx(${i})"><span class="e">${c.emoji}</span>${c.label === 'Other' ? 'Search/Other' : c.label}</div>`
+    `<div class="opt" onclick="selectReqCategoryIdx(${i})"><span class="e">${c.emoji}</span>${c.label === 'Other' ? 'Search/Other' : escHtml(c.label)}</div>`
   ).join('');
 }
 function selectReqCategoryIdx(i){
@@ -3650,7 +3709,7 @@ function filterReqOtherSuggestions(){
     .slice(0, 5);
   if (!matches.length){ box.innerHTML = ''; return; }
   box.innerHTML = '<div style="font-size:11px; color:var(--muted); margin:8px 0 4px;">Already exists — tap to use instead:</div>' +
-    matches.map(c => `<div class="opt" style="padding:10px 14px; margin-top:6px;" onclick="selectExistingFromOther('${c.label.replace(/'/g,"\\'")}')"><span class="e">${c.emoji}</span>${c.label}</div>`).join('');
+    matches.map(c => `<div class="opt" style="padding:10px 14px; margin-top:6px;" onclick="selectExistingFromOther('${c.label.replace(/'/g,"\\'")}')"><span class="e">${c.emoji}</span>${escHtml(c.label)}</div>`).join('');
 }
 function selectExistingFromOther(label){
   document.getElementById('reqOtherInput').value = '';

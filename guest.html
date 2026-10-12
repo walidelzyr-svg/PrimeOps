@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://esm.sh; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.supabase.co; font-src 'self' data:; connect-src 'self' https://*.supabase.co wss://*.supabase.co; object-src 'none'; base-uri 'self'; form-action 'self'" />
 <title>Prime Asia Hotel — Guest Services</title>
 <style>
   :root{
@@ -339,7 +340,7 @@ const T = {
   zh: { chooseLanguage:'请选择语言', changeLanguage:'更改语言', requestSomething:'请求服务', orderFoodDrinks:'点餐和饮品', housekeeping:'客房服务', maintenance:'维修服务', reception:'前台', luggage:'行李协助', transportation:'用车服务', peopleLabel:'人数', vehicleLabel:'车型', sedan:'轿车', van:'商务车', back:'← 返回', confirmTitle:'请求已发送！', confirmBody:'我们的团队已收到通知，将尽快为您提供帮助。', comingSoonTitle:'菜单即将上线', comingSoonBody:'请向我们的工作人员询问今日菜单。', enterPin:'请输入您的房间PIN码', pinHint:'如果还没有PIN码，请询问我们的工作人员。', enter:'确认', pinError:'该PIN码无法识别，或您的入住可能已结束 — 请咨询前台。', pinLocked:'尝试次数过多 — 请稍等几分钟，或联系前台寻求帮助。', otherMessage:'其他 / 留言', typeMessage:'请输入您的留言...', send:'发送', myRequests:'我的请求', myRequestsSub:'查看状态，与前台聊天', statusRejected:'已拒绝', statusPending:'待处理', statusInProgress:'处理中', statusCompleted:'已完成', feedbackPrompt:'您对处理结果满意吗？', feedbackNotePlaceholder:'还有什么想说的吗？（可选）', noRequests:'您还没有发送任何请求。', whenLabel:'什么时候？', emergencyButton:'紧急援助', emergencyConfirmTitle:'现在通知前台和保安吗？', emergencyConfirmBody:'我们的团队将立即收到您需要帮助的通知。', emergencyConfirmYes:'是的，立即通知', emergencyConfirmNo:'取消', emergencySentTitle:'帮助即将到达', emergencySentBody:'前台和保安已收到通知，正在处理中。', quantityLabel:'需要几个？', quantityOther:'其他（输入数量）', cancelRequest:'取消请求', statusCancelled:'已取消', emergencyRemarksPlaceholder:'可选：发生了什么？（可跳过）', notesLabel:'备注（可选）', notesPlaceholder:'有什么特别要求吗？（可选）', yourOrder:'您的订单', cartEmpty:'购物车是空的。', subtotal:'小计', vat:'增值税 (12%)', serviceCharge:'服务费 (10%)', total:'总计', orderNotesLabel:'备注（可选）', orderNotesPlaceholder:'有什么特别要求吗？（可选）', placeOrder:'下单', payOnDelivery:'送达时由我们的工作人员收取费用。', orderConfirmTitle:'订单已提交！', orderConfirmBody:'我们的团队已收到通知，将尽快为您送餐。费用将在送达时收取。', laundry:'洗衣', laundrySubtitle:'每次₱250，最多7公斤', laundryTitle:'洗衣服务', laundryIntro:'每次₱250，最多7公斤。', laundryLoadsLabel:'洗衣次数', laundryEstimateNote:'这是预估金额 — 前台将在称重后确认准确的费用。', laundryEstimatedTotal:'预估金额' }
 };
 
-let lang = 'en';
+let lang = (() => { try { return localStorage.getItem('poGuestLang') || 'en'; } catch(e){ return 'en'; } })();
 let sessionId = localStorage.getItem('poGuestSessionId') || null;
 let guestName = localStorage.getItem('poGuestName') || null;
 const params = new URLSearchParams(window.location.search);
@@ -362,6 +363,7 @@ let guestCategories = [];
 
 window.setLang = async function(l){
   lang = l;
+  try { localStorage.setItem('poGuestLang', l); } catch(e){}
   applyTranslations();
   if (sessionId){
     const { data: result } = await supabase.rpc('is_guest_session_active', { p_session_id: sessionId, p_room: room });
@@ -1044,6 +1046,15 @@ if (sessionId){
     }
   }, 5000);
 }
+
+// F-15: restore the guest's chosen language on reload (and their place if the
+// session is still valid) instead of resetting to the language picker.
+try {
+  if (localStorage.getItem('poGuestLang')){
+    applyTranslations();
+    if (sessionId) window.setLang(lang);
+  }
+} catch(e){}
 </script>
 </body>
 </html>
