@@ -312,7 +312,7 @@
   }
 
   /* ---------- Login gate ---------- */
-  #loginGate, #passwordGate{
+  #loginGate, #passwordGate, #forgotGate, #recoverGate{
     position:fixed; inset:0; background:var(--paper); z-index:100;
     display:flex; align-items:center; justify-content:center; padding:24px;
   }
@@ -330,11 +330,15 @@
     padding:12px 12px; font-size:15px; background:var(--paper); color:var(--ink); font-family:var(--sans);
   }
   .field input:focus{ outline:none; border-color:var(--blue); background:var(--surface); }
+  .field input[type=radio], .field input[type=checkbox]{ width:auto; margin:2px 0 0; padding:0; }
   .login-error{
     margin-top:12px; font-size:12.5px; color:var(--red); background:var(--red-tint);
     border-radius:8px; padding:8px 10px; display:none;
   }
   .login-error.show{ display:block; }
+  .login-ok{ margin-top:12px; font-size:12.5px; color:var(--ink); background:var(--blue-tint, #e7f1fb); border-radius:8px; padding:8px 10px; display:none; line-height:1.45; }
+  .login-ok.show{ display:block; }
+  .login-link{ display:block; text-align:center; margin-top:14px; font-size:13px; color:var(--blue); font-weight:600; background:none; border:none; cursor:pointer; width:100%; }
   .login-btn{ margin-top:20px; }
   #app{ display:none; }
 
@@ -389,10 +393,12 @@
       <input type="password" id="loginPassword" autocomplete="current-password" placeholder="••••••••" />
     </div>
     <div class="login-error" id="loginError"></div>
+    <div class="login-ok" id="loginOk"></div>
     <div class="login-btn">
       <button class="btn primary" onclick="doLogin()">Sign In</button>
     </div>
-    <div style="text-align:center; margin-top:16px; font-size:11px; color:var(--muted);">Build 2026-10-12-01</div>
+    <button type="button" class="login-link" id="forgotLink" onclick="showForgot()">Forgot password?</button>
+    <div style="text-align:center; margin-top:16px; font-size:11px; color:var(--muted);">Build 2026-10-23-02</div>
   </div>
 </div>
 
@@ -413,6 +419,45 @@
     <div class="login-btn">
       <button class="btn primary" onclick="doSetPassword()">Save &amp; Continue</button>
     </div>
+  </div>
+</div>
+
+<div id="forgotGate" style="display:none">
+  <div class="login-card">
+    <div class="login-word">PrimeOps</div>
+    <div class="login-title">Reset your password</div>
+    <div class="login-sub">Enter your work e-mail. We send you a link to choose a new password.</div>
+    <div class="field">
+      <label>Email</label>
+      <input type="email" id="forgotEmail" autocomplete="username" placeholder="you@primeasiahotel.local" />
+    </div>
+    <div class="login-error" id="forgotError"></div>
+    <div class="login-ok" id="forgotOk"></div>
+    <div class="login-btn">
+      <button class="btn primary" id="forgotBtn" onclick="doForgot()">Send reset link</button>
+    </div>
+    <button type="button" class="login-link" onclick="backToLogin()">Back to sign in</button>
+  </div>
+</div>
+
+<div id="recoverGate" style="display:none">
+  <div class="login-card">
+    <div class="login-word">PrimeOps</div>
+    <div class="login-title">Choose a new password</div>
+    <div class="login-sub">At least 8 characters · only you should know it</div>
+    <div class="field">
+      <label>New Password</label>
+      <input type="password" id="recoverPassword" autocomplete="new-password" placeholder="••••••••" />
+    </div>
+    <div class="field">
+      <label>Repeat New Password</label>
+      <input type="password" id="recoverPassword2" autocomplete="new-password" placeholder="••••••••" />
+    </div>
+    <div class="login-error" id="recoverError"></div>
+    <div class="login-btn">
+      <button class="btn primary" id="recoverBtn" onclick="doRecoverSave()">Save new password</button>
+    </div>
+    <button type="button" class="login-link" onclick="backToLogin()">Cancel</button>
   </div>
 </div>
 
@@ -443,6 +488,12 @@
         <span class="announce-text" id="announceText"></span>
         <span class="announce-x" id="announceX" onclick="removeAnnouncement()" style="display:none">✕</span>
       </div>
+    </div>
+
+    <!-- Batch 6: kitchen panel (temperature round, deviations, vegetable level) -->
+    <div id="kitchenPanel" style="display:none; padding:4px 20px 0;">
+      <div class="section-title" style="padding:12px 0 2px;">Kitchen</div>
+      <div id="kitchenPanelBody"></div>
     </div>
 
     <div class="summary" id="summaryRow"></div>
@@ -494,7 +545,7 @@
         <div style="color:var(--muted); font-size:13px; margin-top:2px;" id="profilePosition">Housekeeping Attendant</div>
         <div style="color:var(--muted); font-size:12px; margin-top:10px; font-family:var(--mono);" id="profileHotel">PRIME ASIA HOTEL</div>
         <button class="btn ghost" style="margin-top:20px;" onclick="doLogout()">Sign Out</button>
-        <div style="text-align:center; margin-top:16px; font-size:11px; color:var(--muted);">Build 2026-10-12-01</div>
+        <div style="text-align:center; margin-top:16px; font-size:11px; color:var(--muted);">Build 2026-10-23-02</div>
       </div>
     </div>
   </main>
@@ -619,7 +670,8 @@
       <div id="verifyChecklistStep" style="display:none">
         <div class="sheet-title">Final inspection</div>
         <div class="sheet-step" id="verifyChecklistSub">TICK EVERY ITEM TO COMPLETE</div>
-        <div class="asset-results" id="verifyChecklistList" style="max-height:300px;"></div>
+        <div id="verifyChecklistNote" style="font-size:12px; color:var(--muted); margin:4px 0 6px;"></div>
+        <div class="asset-results" id="verifyChecklistList" style="max-height:340px;"></div>
         <div class="row-btns">
           <button class="btn primary" style="width:100%" id="checklistDoneBtn" disabled onclick="submitChecklist()">CONFIRM INSPECTION</button>
         </div>
@@ -644,16 +696,11 @@
       <div class="sheet-handle"></div>
       <div class="sheet-title">What do you need?</div>
       <div class="sheet-step">CHOOSE ONE</div>
-      <div class="grid-2" style="margin-top:16px;">
-        <div class="opt" onclick="chooseReport()" style="padding:20px 14px;">
-          <span class="e" style="font-size:26px;">🔧</span>
-          <div style="margin-top:6px;">Report a Problem</div>
-          <div style="font-size:11px; color:var(--muted); font-weight:400; margin-top:4px;">Something's broken or needs attention</div>
-        </div>
-        <div class="opt" onclick="chooseRequest()" style="padding:20px 14px;">
-          <span class="e" style="font-size:26px;">🙋</span>
-          <div style="margin-top:6px;">Request Something</div>
-          <div style="font-size:11px; color:var(--muted); font-weight:400; margin-top:4px;">Ask another department for help</div>
+      <div class="opt" onclick="chooseRequest()" style="padding:18px 14px; margin-top:16px; display:flex; align-items:center; gap:14px; text-align:left;">
+        <span class="e" style="font-size:28px;">🛠️</span>
+        <div>
+          <div style="font-size:16px;">Report or Request</div>
+          <div style="font-size:11px; color:var(--muted); font-weight:400; margin-top:3px;">Something broken, or something you need from a department: one form for both</div>
         </div>
       </div>
       <div class="opt" onclick="chooseEndorsement()" style="padding:16px 14px; margin-top:10px; display:flex; align-items:center; gap:12px; text-align:left;">
@@ -681,7 +728,56 @@
         <span class="e" style="font-size:24px;">📢</span>
         <div>
           <div style="color:var(--red); font-weight:700;">Post Announcement</div>
-          <div style="font-size:11px; color:var(--muted); font-weight:400; margin-top:2px;">Urgent hotel-wide FYI — visible to everyone until you remove it</div>
+          <div style="font-size:11px; color:var(--muted); font-weight:400; margin-top:2px;">Urgent hotel-wide FYI — visible to everyone until an Admin or the GM removes it</div>
+        </div>
+      </div>
+      <div class="opt" id="typeReviewOpt" onclick="chooseTypeReview()" style="padding:16px 14px; margin-top:10px; display:none; align-items:center; gap:12px; text-align:left;">
+        <span class="e" style="font-size:24px;">🏷️</span>
+        <div>
+          <div>Task Types to Review</div>
+          <div style="font-size:11px; color:var(--muted); font-weight:400; margin-top:2px;">Records the system could not sort: choose the type when it is clear</div>
+        </div>
+      </div>
+      <div class="opt" id="taskTypesOpt" onclick="chooseTaskTypes()" style="padding:16px 14px; margin-top:10px; display:none; align-items:center; gap:12px; text-align:left;">
+        <span class="e" style="font-size:24px;">🗂️</span>
+        <div>
+          <div>Task Types</div>
+          <div style="font-size:11px; color:var(--muted); font-weight:400; margin-top:2px;">Add or change request types: who does them, who else is alerted, the words that find them</div>
+        </div>
+      </div>
+      <div class="opt" id="itemListsOpt" onclick="chooseItemLists()" style="padding:16px 14px; margin-top:10px; display:none; align-items:center; gap:12px; text-align:left;">
+        <span class="e" style="font-size:24px;">🧺</span>
+        <div>
+          <div>Item Lists</div>
+          <div style="font-size:11px; color:var(--muted); font-weight:400; margin-top:2px;">The items staff pick in a request: rename, hide or add</div>
+        </div>
+      </div>
+      <div class="opt" id="automationOpt" onclick="chooseAutomation()" style="padding:16px 14px; margin-top:10px; display:none; align-items:center; gap:12px; text-align:left;">
+        <span class="e" style="font-size:24px;">🗓️</span>
+        <div>
+          <div>Scheduled Tasks</div>
+          <div style="font-size:11px; color:var(--muted); font-weight:400; margin-top:2px;">Make-up rooms, shift rounds and reminders: create them now to test</div>
+        </div>
+      </div>
+      <div class="opt" id="redDayOpt" onclick="chooseRedDay()" style="padding:16px 14px; margin-top:10px; display:none; align-items:center; gap:12px; text-align:left;">
+        <span class="e" style="font-size:24px;">🔴</span>
+        <div>
+          <div>Start Red-day Service</div>
+          <div style="font-size:11px; color:var(--muted); font-weight:400; margin-top:2px;">Imo moves to another venue from 11:00 to 17:00: staff, guests and the kitchen are told</div>
+        </div>
+      </div>
+      <div class="opt" id="readinessOpt" onclick="chooseReadiness()" style="padding:16px 14px; margin-top:10px; display:none; align-items:center; gap:12px; text-align:left;">
+        <span class="e" style="font-size:24px;">☀️</span>
+        <div>
+          <div>El Niño Readiness</div>
+          <div style="font-size:11px; color:var(--muted); font-weight:400; margin-top:2px;">Verifications, Red-day venues and the approved units, with evidence</div>
+        </div>
+      </div>
+      <div class="opt" id="kitchenRolesOpt" onclick="chooseKitchenRoles()" style="padding:16px 14px; margin-top:10px; display:none; align-items:center; gap:12px; text-align:left;">
+        <span class="e" style="font-size:24px;">👨‍🍳</span>
+        <div>
+          <div>Kitchen Roles</div>
+          <div style="font-size:11px; color:var(--muted); font-weight:400; margin-top:2px;">Executive Chef, Inventory Manager and food-safety lead</div>
         </div>
       </div>
       <div class="opt" id="guestStayOpt" onclick="chooseGuestStay()" style="padding:16px 14px; margin-top:10px; display:none; align-items:center; gap:12px; text-align:left;">
@@ -917,6 +1013,7 @@
         <label>Message</label>
         <input type="text" id="announceInput" placeholder="e.g. Elevator 2 is out of service — use Elevator 1 or the stairs" autofocus />
       </div>
+      <label style="display:flex; gap:8px; align-items:center; font-size:13px; margin-top:12px; cursor:pointer;"><input type="checkbox" id="announceGuests" style="width:auto;" /> Also show to guests in the guest app (in English)</label>
       <div class="login-error" id="announceError"></div>
       <button class="btn primary" style="width:100%; margin-top:8px; background:var(--red);" onclick="submitAnnouncement()">Post to Everyone</button>
     </div>
@@ -1087,7 +1184,7 @@
 
       <div id="reqStep1">
         <div class="sheet-title">Which department(s)?</div>
-        <div class="sheet-step">STEP 1 OF 4 · TAP ALL THAT APPLY</div>
+        <div class="sheet-step">STEP 1 OF 4 · WHO SHOULD HANDLE IT · TAP ALL THAT APPLY</div>
         <div class="grid-2" id="reqDeptGrid"></div>
         <div class="row-btns">
           <button class="btn primary" style="width:100%" id="reqDeptNextBtn" disabled onclick="reqDeptNext()">Next</button>
@@ -1095,43 +1192,70 @@
       </div>
 
       <div id="reqStep2" style="display:none">
-        <div class="sheet-title">What do you need?</div>
-        <div class="sheet-step">STEP 2 OF 4</div>
-        <div class="grid-2" id="reqCategoryGrid"></div>
+        <div class="sheet-title">What is it?</div>
+        <div class="sheet-step">STEP 2 OF 4 · A PROBLEM OR A REQUEST · SEARCH OR PICK</div>
+        <div class="field" style="margin-top:0;">
+          <input type="text" id="reqTypeSearch" placeholder="Search: leak, aircon, CCTV, towels, NCI, bus out…" autocomplete="off" oninput="buildReqTypeList()" />
+        </div>
+        <div id="reqTypeList" style="max-height:46vh; overflow-y:auto;"></div>
+        <div class="opt" onclick="selectReqOther()" style="margin-top:10px; text-align:center; font-size:13px;">✏️ Not in the list: describe it</div>
+        <div class="row-btns">
+          <button class="btn ghost" style="width:100%" onclick="reqBackToDepts()">Back</button>
+        </div>
       </div>
 
       <div id="reqStepOther" style="display:none">
-        <div class="sheet-title">Describe what you need</div>
-        <div class="sheet-step">STEP 2 OF 4 · OTHER</div>
+        <div class="sheet-title">Describe it</div>
+        <div class="sheet-step">STEP 2 OF 4 · NOT IN THE LIST</div>
         <div class="field">
           <label>Brief description</label>
-          <input type="text" id="reqOtherInput" placeholder="e.g. Extra towels for a group" autofocus oninput="filterReqOtherSuggestions()" />
+          <input type="text" id="reqOtherInput" maxlength="120" placeholder="e.g. Move 10 chairs to Marsa" />
         </div>
-        <div id="reqOtherSuggestions"></div>
+        <div style="font-size:12px; color:var(--muted); margin-top:8px;">Free text is fine. The request is sorted into a task type automatically, or by an Admin.</div>
         <div class="login-error" id="reqOtherError"></div>
         <div class="row-btns">
           <button class="btn ghost" onclick="reqBackToCategory()">Back</button>
-          <button class="btn primary" onclick="reqConfirmOther()">Next</button>
+          <button class="btn primary" style="flex:1;" onclick="reqConfirmOther()">Next</button>
         </div>
       </div>
 
       <div id="reqStep3" style="display:none">
-        <div class="sheet-title">How many / details?</div>
-        <div class="sheet-step">STEP 3 OF 4</div>
-        <div class="field" style="margin-top:0;">
-          <label>Quantity or detail</label>
-          <input type="text" id="reqQuantityInput" placeholder="e.g. 50 pax, 20 bags, Floors 3\u20134" autofocus />
+        <div class="sheet-title" id="reqDetailTitle">Details</div>
+        <div class="sheet-step">STEP 3 OF 4 · DETAILS</div>
+        <div id="reqItemsBox"></div>
+        <div id="reqPlaceBox"></div>
+        <div id="reqFieldsBox"></div>
+        <div id="reqFollowUpBox"></div>
+        <div class="field">
+          <label>Note (optional)</label>
+          <textarea id="reqNoteInput" rows="2" maxlength="500" placeholder="Anything else: more than 4 of an item, timing, who to ask for" style="width:100%; margin-top:6px; padding:12px; border:1.5px solid var(--line); border-radius:10px; font-size:15px; font-family:var(--sans); background:var(--paper); color:var(--ink); resize:vertical;"></textarea>
         </div>
         <div class="login-error" id="reqQuantityError"></div>
         <div class="row-btns">
-          <button class="btn primary" style="width:100%" onclick="reqConfirmQuantity()">Next</button>
+          <button class="btn ghost" onclick="reqBackFromDetails()">Back</button>
+          <button class="btn primary" style="flex:1;" onclick="reqConfirmDetails()">Next</button>
+        </div>
+      </div>
+
+      <div id="reqStepConfirm" style="display:none">
+        <div class="sheet-title">Are these quantities correct?</div>
+        <div class="sheet-step">CHECK BEFORE SENDING</div>
+        <div id="reqConfirmList"></div>
+        <div class="row-btns">
+          <button class="btn ghost" onclick="reqConfirmEdit()">Cancel / Edit</button>
+          <button class="btn primary" style="flex:1;" onclick="reqConfirmYes()">Confirm</button>
         </div>
       </div>
 
       <div id="reqStep4" style="display:none">
         <div class="sheet-title">When do you need this?</div>
         <div class="sheet-step">STEP 4 OF 4</div>
-        <button class="btn ghost" style="width:100%; margin-bottom:6px;" onclick="document.getElementById('reqFileInput').click()">📎 Attach file / screenshot (optional)</button>
+        <div id="reqDueStd" style="font-size:12px; color:var(--muted); margin-bottom:8px;"></div>
+        <div style="display:flex; gap:8px; margin-bottom:6px;">
+          <button class="btn ghost" style="flex:1;" onclick="document.getElementById('reqCameraInput').click()">📷 Take a photo</button>
+          <button class="btn ghost" style="flex:1;" onclick="document.getElementById('reqFileInput').click()">📎 Attach a file</button>
+        </div>
+        <input type="file" id="reqCameraInput" accept="image/*" capture="environment" style="display:none" onchange="handleReqFile(event)" />
         <div style="font-size:12px; color:var(--muted); text-align:center; margin-bottom:8px;" id="reqAttachStatus"></div>
         <input type="file" id="reqFileInput" multiple accept="image/*,video/*,.pdf,.xlsx,.xls,.docx,.doc,.csv" style="display:none" onchange="handleReqFile(event)" />
         <div class="grid-2" id="reqDueGrid">
@@ -1148,7 +1272,100 @@
             <button class="btn primary" style="flex:1;" onclick="submitReqDeadlinePicked()">Confirm Deadline</button>
           </div>
         </div>
+        <div class="row-btns">
+          <button class="btn ghost" style="width:100%" onclick="reqBackFromStep4()">Back</button>
+        </div>
       </div>
+    </div>
+  </div>
+
+  <!-- Batch 6: kitchen temperature round, deviations, vegetables, roles, Red-day, El Niño readiness -->
+  <div class="overlay" id="tempRoundOverlay" onclick="closeTempRoundOnBg(event)">
+    <div class="sheet">
+      <div class="sheet-handle"></div>
+      <div class="sheet-title">Temperature round</div>
+      <div class="sheet-step" id="tempRoundSub"></div>
+      <div id="tempRoundBody"></div>
+    </div>
+  </div>
+  <div class="overlay" id="deviationOverlay" onclick="closeDeviationOnBg(event)">
+    <div class="sheet">
+      <div class="sheet-handle"></div>
+      <div class="sheet-title">Temperature deviations</div>
+      <div class="sheet-step">MOVE THE STOCK · TELL THE DUTY MANAGER · THE CHEF DECIDES</div>
+      <div id="deviationBody"></div>
+    </div>
+  </div>
+  <div class="overlay" id="vegOverlay" onclick="closeVegOnBg(event)">
+    <div class="sheet">
+      <div class="sheet-handle"></div>
+      <div class="sheet-title">Vegetables and menu</div>
+      <div class="sheet-step">SUPPLY LEVEL · DISHES PAUSED FOR GUESTS</div>
+      <div id="vegBody"></div>
+    </div>
+  </div>
+  <div class="overlay" id="kitchenRolesOverlay" onclick="closeKitchenRolesOnBg(event)">
+    <div class="sheet">
+      <div class="sheet-handle"></div>
+      <div class="sheet-title">Kitchen roles</div>
+      <div class="sheet-step">ADMINS AND THE GM</div>
+      <div id="kitchenRolesBody"></div>
+    </div>
+  </div>
+  <div class="overlay" id="redDayOverlay" onclick="closeRedDayOnBg(event)">
+    <div class="sheet">
+      <div class="sheet-handle"></div>
+      <div class="sheet-title">Start Red-day Service</div>
+      <div class="sheet-step">DUTY MANAGER WITH THE GM · ONCE PER SERVICE DAY</div>
+      <p id="redDayNote" style="font-size:13px; margin:0 0 6px;"></p><p style="font-size:12px; color:var(--muted); margin:0 0 6px;">Where does Imo serve? Staff and guests see an announcement (guests in their language) and the kitchen gets the Red-day checklist.</p><div class="opt" onclick="startRedDay('Marsa')" style="padding:14px; margin-top:8px; text-align:left;"><div style="font-weight:700;">Marsa</div><div style="font-size:11px; color:var(--muted); font-weight:400; margin-top:2px;">Imo service moves to Marsa</div></div><div class="opt" onclick="startRedDay('Prime Mezzanine')" style="padding:14px; margin-top:8px; text-align:left;"><div style="font-weight:700;">Prime Mezzanine</div><div style="font-size:11px; color:var(--muted); font-weight:400; margin-top:2px;">Prime Function room</div></div><div class="opt" onclick="startRedDay('Nuxe Function')" style="padding:14px; margin-top:8px; text-align:left;"><div style="font-weight:700;">Nuxe Function</div><div style="font-size:11px; color:var(--muted); font-weight:400; margin-top:2px;">Function room on the Nuxe floor</div></div><div class="opt" onclick="startRedDay('Room Service only')" style="padding:14px; margin-top:8px; text-align:left;"><div style="font-weight:700;">Room Service only</div><div style="font-size:11px; color:var(--muted); font-weight:400; margin-top:2px;">No outlet seating: in-room dining only</div></div><p id="redDayRecent" style="font-size:11px; color:var(--muted); margin:10px 0 0;"></p>
+    </div>
+  </div>
+  <div class="overlay" id="readinessOverlay" onclick="closeReadinessOnBg(event)">
+    <div class="sheet">
+      <div class="sheet-handle"></div>
+      <div class="sheet-title">El Niño readiness</div>
+      <div class="sheet-step">ADMINS AND THE GM · EVIDENCE REQUIRED</div>
+      <div id="readinessBody"></div>
+    </div>
+  </div>
+
+  <!-- Batch 5: scheduled tasks created by hand for testing, and automation switches (GM) -->
+  <div class="overlay" id="automationOverlay" onclick="closeAutomationOnBg(event)">
+    <div class="sheet">
+      <div class="sheet-handle"></div>
+      <div class="sheet-title">Scheduled Tasks</div>
+      <div class="sheet-step">ADMINS AND THE GM</div>
+      <div id="automationBody"></div>
+    </div>
+  </div>
+
+  <!-- Batch 4 (J33): records without a clear task type, for Admins and the GM -->
+  <!-- Batch 7: request item lists, edited by Admins and the GM -->
+  <div class="overlay" id="itemListsOverlay" onclick="closeItemListsOnBg(event)">
+    <div class="sheet">
+      <div class="sheet-handle"></div>
+      <div class="sheet-title">Item lists</div>
+      <div class="sheet-step">ADMINS AND THE GM · WHAT STAFF PICK IN A REQUEST</div>
+      <div id="itemListsBody"></div>
+    </div>
+  </div>
+
+  <!-- Batch 8: request types, added and changed by Admins and the GM -->
+  <div class="overlay" id="taskTypesOverlay" onclick="closeTaskTypesOnBg(event)">
+    <div class="sheet">
+      <div class="sheet-handle"></div>
+      <div class="sheet-title">Task types</div>
+      <div class="sheet-step">ADMINS AND THE GM · WHAT STAFF CAN REPORT OR REQUEST</div>
+      <div id="taskTypesBody"></div>
+    </div>
+  </div>
+
+  <div class="overlay" id="typeReviewOverlay" onclick="closeTypeReviewOnBg(event)">
+    <div class="sheet">
+      <div class="sheet-handle"></div>
+      <div class="sheet-title">Task types to review</div>
+      <div class="sheet-step">ADMINS AND THE GM</div>
+      <div id="typeReviewBody"></div>
     </div>
   </div>
 
@@ -1161,7 +1378,24 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const SUPABASE_URL = 'https://ktdnljmfnniuagwhdzas.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_s-Xj4wDiOuN6kSyWklAqBg_6n4On3Iv';
+// Password recovery: read what the e-mailed link put in the address BEFORE the client reads and clears it.
+// A valid link arrives as #access_token=…&type=recovery; an expired, invalid or already used one as #error=…
+const RECOVERY_REDIRECT = 'https://primeasiahotel.netlify.app/';
+const AUTH_LINK = (() => {
+  const h = new URLSearchParams((location.hash || '').replace(/^#/, ''));
+  const q = new URLSearchParams(location.search || '');
+  return {
+    recovery: h.get('type') === 'recovery' || q.get('type') === 'recovery',
+    error: h.get('error') || q.get('error') || null,
+    errorCode: h.get('error_code') || q.get('error_code') || null
+  };
+})();
+let recoveryMode = AUTH_LINK.recovery && !AUTH_LINK.error;
+let recoveryHandled = false;   // a reset link is checked once per page load (the event and the start-up check can both fire)
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+supabase.auth.onAuthStateChange((event) => {
+  if (event === 'PASSWORD_RECOVERY' && !recoveryHandled) { recoveryMode = true; showRecoverGate(); }
+});
 
 /* ---------------- Static lookups (not from DB yet) ---------------- */
 const DEFAULT_WHAT_OPTIONS = [
@@ -1252,7 +1486,7 @@ window.addEventListener('focus', () => {
 // running old code against a changed backend (the root cause of the Sept
 // outage). On each foreground, cheaply check the deployed build marker and, if
 // it moved, show a one-tap refresh so no one is left on a stale version.
-const APP_BUILD = '2026-10-12-01';
+const APP_BUILD = '2026-10-23-02';
 let staleBannerShown = false;
 async function checkForNewBuild(){
   if (staleBannerShown) return;
@@ -1319,8 +1553,126 @@ let currentMember = null;
 /* ---------------- Auth ---------------- */
 function pad(n){return n<10?'0'+n:n;}
 
-async function checkSession(){
+function hideAuthCards(){
+  ['loginGate', 'passwordGate', 'forgotGate', 'recoverGate'].forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
+  document.getElementById('app').style.display = 'none';
+}
+function clearAuthLink(){
+  try { history.replaceState(null, '', location.pathname); } catch(_){}
+}
+function showLoginMessage(kind, text){
+  hideAuthCards();
+  document.getElementById('loginGate').style.display = 'flex';
+  const err = document.getElementById('loginError'), ok = document.getElementById('loginOk');
+  err.classList.remove('show'); ok.classList.remove('show');
+  const box = kind === 'ok' ? ok : err;
+  box.textContent = text;
+  box.classList.add('show');
+}
+function showForgot(){
+  hideAuthCards();
+  document.getElementById('forgotGate').style.display = 'flex';
+  document.getElementById('forgotError').classList.remove('show');
+  document.getElementById('forgotOk').classList.remove('show');
+  const typed = document.getElementById('loginEmail').value.trim();
+  const fe = document.getElementById('forgotEmail');
+  if (typed && !fe.value) fe.value = typed;
+  fe.focus();
+}
+function backToLogin(){
+  if (recoveryMode){ recoveryMode = false; supabase.auth.signOut(); clearAuthLink(); }
+  hideAuthCards();
+  document.getElementById('loginGate').style.display = 'flex';
+}
+let forgotCooldownUntil = 0;
+async function doForgot(){
+  const email = document.getElementById('forgotEmail').value.trim();
+  const err = document.getElementById('forgotError'), ok = document.getElementById('forgotOk');
+  err.classList.remove('show'); ok.classList.remove('show');
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){
+    err.textContent = 'Enter the e-mail address you sign in with.';
+    err.classList.add('show');
+    return;
+  }
+  if (Date.now() < forgotCooldownUntil){
+    ok.textContent = 'A link was just requested. Check your inbox and spam folder, or try again in a minute.';
+    ok.classList.add('show');
+    return;
+  }
+  const btn = document.getElementById('forgotBtn');
+  btn.disabled = true;
+  try {
+    // The answer is the same whether or not the address has an account: nothing here tells anyone who works here.
+    await supabase.auth.resetPasswordForEmail(email, { redirectTo: RECOVERY_REDIRECT });
+  } catch(_){}
+  btn.disabled = false;
+  forgotCooldownUntil = Date.now() + 60000;
+  ok.textContent = 'If this e-mail belongs to a PrimeOps account, a reset link is on its way. Open it on this phone. The link works once and expires after a short time.';
+  ok.classList.add('show');
+}
+async function showRecoverGate(){
+  if (recoveryHandled) return;
+  recoveryHandled = true;
   const { data: { session } } = await supabase.auth.getSession();
+  if (!session){
+    recoveryMode = false;
+    clearAuthLink();
+    showLoginMessage('error', 'This reset link has expired or was already used. Tap "Forgot password?" to get a new one.');
+    return;
+  }
+  // A deactivated or unknown account cannot use a reset link to get back in.
+  const { data: member } = await supabase.from('team_members').select('active').eq('email', session.user.email).maybeSingle();
+  if (!member || member.active === false){
+    recoveryMode = false;
+    await supabase.auth.signOut();
+    clearAuthLink();
+    showLoginMessage('error', member ? 'This account has been deactivated. Please contact the GM.' : 'Your account is not fully set up yet. Ask the GM to add you to the team list with this exact email.');
+    return;
+  }
+  hideAuthCards();
+  document.getElementById('recoverGate').style.display = 'flex';
+  document.getElementById('recoverError').classList.remove('show');
+  const rp = document.getElementById('recoverPassword');
+  if (rp) rp.focus();
+}
+async function doRecoverSave(){
+  const p1 = document.getElementById('recoverPassword').value;
+  const p2 = document.getElementById('recoverPassword2').value;
+  const err = document.getElementById('recoverError');
+  err.classList.remove('show');
+  if (p1.length < 8){ err.textContent = 'Password must be at least 8 characters.'; err.classList.add('show'); return; }
+  if (p1 !== p2){ err.textContent = 'Passwords do not match.'; err.classList.add('show'); return; }
+  const btn = document.getElementById('recoverBtn');
+  btn.disabled = true;
+  const { error } = await supabase.auth.updateUser({ password: p1 });
+  btn.disabled = false;
+  if (error){
+    err.textContent = /different from the old/i.test(error.message || '')
+      ? 'Choose a password you have not used before.'
+      : (/session|expired|jwt/i.test(error.message || '') ? 'This reset link has expired. Go back and ask for a new one.' : (error.message || 'The password could not be saved. Try again.'));
+    err.classList.add('show');
+    return;
+  }
+  try { await supabase.rpc('clear_my_password_flag'); } catch(_){}
+  recoveryMode = false;
+  await supabase.auth.signOut();
+  clearAuthLink();
+  document.getElementById('recoverPassword').value = '';
+  document.getElementById('recoverPassword2').value = '';
+  showLoginMessage('ok', 'Password updated. Sign in with your new password.');
+}
+
+async function checkSession(){
+  if (AUTH_LINK.error){
+    clearAuthLink();
+    showLoginMessage('error', 'This reset link has expired or was already used. Tap "Forgot password?" to get a new one.');
+    return;
+  }
+  const { data: { session } } = await supabase.auth.getSession();
+  if (recoveryMode){
+    await showRecoverGate();
+    return;
+  }
   if (session){
     await onSignedIn(session);
   } else {
@@ -1336,6 +1688,7 @@ async function doLogin(){
   const password = document.getElementById('loginPassword').value;
   const errBox = document.getElementById('loginError');
   errBox.classList.remove('show');
+  document.getElementById('loginOk').classList.remove('show');
 
   if (!email || !password){
     errBox.textContent = 'Enter both email and password.';
@@ -1488,6 +1841,7 @@ async function init(){
       reloadDepartments(),
       reloadMembers(),
       reloadRequestCategories(),
+      reloadIntakeCatalog(),
       (async () => {
         const { data: principles } = await supabase.from('principles').select('text').eq('active', true);
         if (principles && principles.length){
@@ -1502,7 +1856,8 @@ async function init(){
       loadAnnouncement(),
       loadCases(),
       loadEndorsements(),
-      refreshCheckedInCount()
+      refreshCheckedInCount(),
+      loadMyRoleTags().then(loadKitchenPanel) // Batch 6
     ]);
     CONNECTED = true;
     toast('Connected to PrimeOps backend');
@@ -1590,7 +1945,7 @@ async function reloadCategories(){
 }
 
 async function reloadDepartments(){
-  const { data } = await supabase.from('departments').select('id,name').eq('active', true).order('name');
+  const { data } = await supabase.from('departments').select('id,name,code').eq('active', true).order('name');
   allDepartments = data || [];
 }
 
@@ -1718,7 +2073,10 @@ async function loadEndorsements(){
   // Fetch every endorsement relevant to me (dept-scoped for staff/admin,
   // hotel-wide for GM) — no status filter anymore, per-person acks decide
   let q = supabase.from('endorsements').select('*').is('closed_at', null).is('cancelled_at', null).order('created_at', { ascending: false });
-  if (!isGM() && currentMember?.department_id) {
+  // Batch 2 (Batch 1 open question 2): Admins see every department's endorsements, their own department
+  // first and the others folded by department. Only the GM can Override & Close (GM 21 Oct 2026).
+  // Staff keep their own department's list.
+  if (!hasHotelView() && currentMember?.department_id) {
     const parts = [`to_department_id.eq.${currentMember.department_id}`, `from_department_id.eq.${currentMember.department_id}`];
     if (currentMember?.id) parts.push(`to_member_id.eq.${currentMember.id}`);
     q = q.or(parts.join(','));
@@ -1837,7 +2195,7 @@ function renderEndorsementHistory(){
       const ackLine = `By ${memberName(e.created_by) || '—'} · Acknowledged by ${memberName(row.member_id) || 'team'}${row.acknowledged_at ? ' · ' + fmtTime(row.acknowledged_at) : ''}${row.reply_text ? ` · reply: "${row.reply_text}"` : ''}`;
       const closedLine = e.closed_at
         ? (e.closed_by_override
-            ? ` · Closed by ${memberName(e.closed_by) || 'GM'} (override — not everyone acknowledged) · ${fmtTime(e.closed_at)}`
+            ? ` · Closed by ${memberName(e.closed_by) || 'Admin/GM'} (override — not everyone acknowledged) · ${fmtTime(e.closed_at)}`
             : ` · Closed by ${memberName(e.closed_by) || 'admin'} · ${fmtTime(e.closed_at)}`)
         : '';
       return `
@@ -1861,7 +2219,17 @@ function renderEndorsements(){
     return;
   }
   section.style.display = 'block';
-  list.innerHTML = deptGroupsHtml(endorsements, e => e.to_member_id || (e.to_gm ? 'GM' : e.to_department_id), endorsementCardHtml);
+  const groupKey = e => e.to_member_id || (e.to_gm ? 'GM' : e.to_department_id);
+  if (isAdmin() && currentMember?.department_id){
+    const myDept = currentMember.department_id;
+    const mine = endorsements.filter(e => e.to_department_id === myDept || e.from_department_id === myDept || e.to_member_id === currentMember.id);
+    const others = endorsements.filter(e => !mine.includes(e));
+    list.innerHTML = deptGroupsHtml(mine, groupKey, endorsementCardHtml)
+      + (others.length ? `<div style="font-weight:800; font-size:13px; color:var(--muted); margin:14px 2px 6px;">Other departments (${others.length})</div>`
+          + deptGroupsHtml(others, groupKey, endorsementCardHtml, false) : '');
+  } else {
+    list.innerHTML = deptGroupsHtml(endorsements, groupKey, endorsementCardHtml);
+  }
 }
 
 function deptGroupsHtml(items, deptIdFn, cardFn, openByDefault = true){
@@ -1946,13 +2314,14 @@ function endorsementCardHtml(e){
     ? `<button class="btn ghost" style="margin-top:6px;" onclick="closeEndorsement('${e.id}', false)">MARK FULLY CLOSED (${ackCount}/${headcount})</button>`
     : '';
 
-  // GM-only override — closes an endorsement that's gone stale even
-  // though not everyone has acknowledged it. Deliberately GM-specific
-  // (not extended to admin like the honest close above), separately
-  // styled, and recorded distinctly in History so the record never
-  // reads as if full acknowledgment actually happened. Doesn't apply
+  // Override & Close — closes an endorsement that's gone stale even
+  // though not everyone has acknowledged it. GM only (GM 21 Oct 2026,
+  // Batch 1 open question 2; Admins see every endorsement). Still
+  // separately styled and recorded distinctly in History so the record
+  // never reads as if full acknowledgment actually happened. Doesn't apply
   // to GM-targeted or person-targeted endorsements — overriding a note
-  // addressed to one specific person/GM has no real meaning.
+  // addressed to one specific person/GM has no real meaning. The database
+  // enforces the same rule and records who closed it from the login.
   const canOverrideClose = isGM() && !e.to_gm && !e.to_member_id && headcount > 0 && ackCount < headcount;
   const overrideBtn = canOverrideClose
     ? `<button class="btn" style="margin-top:6px; background:#FEF3E2; color:#B45309; border:1px solid #F5CBA0;" onclick="closeEndorsement('${e.id}', true)">⚠️ Override & Close (${ackCount}/${headcount} acknowledged)</button>`
@@ -2078,14 +2447,24 @@ async function submitDMReply(withReply){
 }
 
 async function closeEndorsement(id, isOverride){
+  // Batch 1 (S8, AT5): the database sets closed_by, the time and the
+  // override flag from the login and the real acknowledgement count.
+  // Batch 2 (Batch 1 open question 6): an optional remark on Override & Close, kept with the record.
+  let remark = null;
+  if (isOverride){
+    remark = window.prompt('Override & Close — optional remark (why it is being closed). Leave empty to skip.', '');
+    if (remark === null) return;   // Cancel: nothing is closed
+    remark = remark.trim() || null;
+  }
   const { error } = await supabase.from('endorsements').update({
     closed_at: new Date().toISOString(),
-    closed_by: currentMember?.id || null,
-    closed_by_override: !!isOverride
+    closed_by_override: !!isOverride,
+    ...(remark ? { close_remark: remark } : {})
   }).eq('id', id);
   if (error){
     console.error(error);
-    toast("Couldn't submit — check your connection and try again");
+    toast(dbErrorText(error, "Couldn't submit — check your connection and try again"));
+    await loadEndorsements();
     return;
   }
   toast(isOverride ? 'Endorsement closed (override)' : 'Endorsement fully closed');
@@ -2107,6 +2486,11 @@ function btnClass(s){
 function isGM(){ return currentMember?.role === 'gm'; }
 function isAdmin(){ return currentMember?.role === 'admin'; }
 function hasHotelView(){ return isGM() || isAdmin(); }
+// Batch 1: the database now explains why it refused an approval step
+// (for example "Only an Admin or the GM can …"); show that text when given.
+function dbErrorText(error, fallback){
+  return (error && error.code === 'P0001' && error.message) ? error.message : fallback;
+}
 
 function phDay(ts){
   // Calendar date in Philippines time (Asia/Manila), e.g. "2026-07-19"
@@ -2201,7 +2585,12 @@ function render(){
 
   document.getElementById('staffBody').style.display = hasHotelView() ? 'none' : 'block';
   document.getElementById('gmBody').style.display = hasHotelView() ? 'block' : 'none';
-  document.getElementById('announceOpt').style.display = isGM() ? 'flex' : 'none';
+  document.getElementById('typeReviewOpt').style.display = hasHotelView() ? 'flex' : 'none'; // Batch 4 (J33)
+  document.getElementById('taskTypesOpt').style.display = hasHotelView() ? 'flex' : 'none'; // Batch 8
+  document.getElementById('itemListsOpt').style.display = hasHotelView() ? 'flex' : 'none'; // Batch 7 (item lists: any Admin edits them)
+  document.getElementById('automationOpt').style.display = hasHotelView() ? 'flex' : 'none'; // Batch 5
+  ['redDayOpt', 'readinessOpt', 'kitchenRolesOpt'].forEach(id => { document.getElementById(id).style.display = hasHotelView() ? 'flex' : 'none'; }); // Batch 6
+  document.getElementById('announceOpt').style.display = hasHotelView() ? 'flex' : 'none'; // Batch 1 (Q17): Admins and the GM
   document.getElementById('guestStayOpt').style.display = hasHotelView() ? 'flex' : 'none';
   document.getElementById('checkedInOpt').style.display = hasHotelView() ? 'flex' : 'none';
 
@@ -2324,11 +2713,77 @@ function renderGM(){
     : `<div class="empty">Nothing here right now.</div>`;
 }
 
-function fileLinks(arr, single, sym){
-  const urls = (arr && arr.length) ? arr : (single ? [single] : []);
-  const isVideo = /\.(mp4|mov|webm|m4v|3gp)(\?|$)/i;
-  return urls.map(u => `<a href="${u}" target="_blank" style="text-decoration:none;">${isVideo.test(u) ? '🎥' : sym}</a>`).join(' ');
+/* ---------------- Private case photos (Batch 1 / S1) ----------------
+   The case-photos storage is private. Records hold the file's path, not a
+   public link. Each link on screen gets a short-lived signed address,
+   created in one batch call after the screen is drawn (signPendingFileLinks)
+   and reused until shortly before it expires. photoPath() also accepts an
+   old-style full link, so a record or device that still holds one keeps working. */
+const SIGNED_LINK_SECONDS = 3600;
+const signedLinkCache = new Map(); // path -> { url, exp (ms) }
+function photoPath(u){
+  if (!u) return '';
+  const s = String(u);
+  const m = s.match(/\/storage\/v1\/object\/(?:public|sign|authenticated)\/case-photos\/([^?#]+)/);
+  if (!m) return s;
+  try { return decodeURIComponent(m[1]); } catch (_) { return m[1]; }
 }
+function cachedSignedLink(path){
+  const hit = signedLinkCache.get(path);
+  return (hit && hit.exp - Date.now() > 5 * 60 * 1000) ? hit : null;
+}
+function fileLinks(arr, single, sym){
+  const items = (arr && arr.length) ? arr : (single ? [single] : []);
+  const isVideo = /\.(mp4|mov|webm|m4v|3gp)(\?|$)/i;
+  return items.map(u => {
+    const p = photoPath(u);
+    const hit = cachedSignedLink(p);
+    return `<a href="${hit ? escHtml(hit.url) : '#'}" data-path="${escHtml(p)}" data-exp="${hit ? hit.exp : 0}" target="_blank" rel="noopener" onclick="return openFile(event, this)" style="text-decoration:none;">${isVideo.test(p) ? '🎥' : sym}</a>`;
+  }).join(' ');
+}
+let signLinksTimer = null;
+function scheduleSignFileLinks(){
+  clearTimeout(signLinksTimer);
+  signLinksTimer = setTimeout(signPendingFileLinks, 150);
+}
+async function signPendingFileLinks(onlyEl){
+  const els = onlyEl ? [onlyEl] : [...document.querySelectorAll('a[data-path]')]
+    .filter(a => Number(a.dataset.exp || 0) - Date.now() < 5 * 60 * 1000);
+  if (!els.length) return;
+  const need = [...new Set(els.map(a => a.dataset.path).filter(p => p && !cachedSignedLink(p)))];
+  if (need.length){
+    const { data, error } = await supabase.storage.from('case-photos').createSignedUrls(need, SIGNED_LINK_SECONDS);
+    if (error){ console.error(error); }
+    const exp = Date.now() + SIGNED_LINK_SECONDS * 1000;
+    (data || []).forEach(r => { if (r && !r.error && r.signedUrl && r.path) signedLinkCache.set(r.path, { url: r.signedUrl, exp }); });
+  }
+  els.forEach(a => {
+    const hit = cachedSignedLink(a.dataset.path);
+    if (hit){ a.href = hit.url; a.dataset.exp = String(hit.exp); }
+  });
+}
+async function openFile(ev, el){
+  // Already signed and still fresh: let the browser open it normally.
+  if (el && Number(el.dataset.exp || 0) - Date.now() > 30 * 1000 && el.getAttribute('href') !== '#') return true;
+  if (ev) ev.preventDefault();
+  // Open the tab inside the tap so the browser does not block it as a pop-up.
+  const w = window.open('', '_blank');
+  await signPendingFileLinks(el);
+  const hit = el && cachedSignedLink(el.dataset.path);
+  if (!hit){
+    if (w) w.close();
+    toast("Couldn't open the file — check your connection and try again");
+    return false;
+  }
+  if (w) w.location.href = hit.url;
+  else toast('Tap the icon again to open the file');
+  return false;
+}
+// Sign links whenever new cards are drawn, wherever they are drawn.
+new MutationObserver(muts => {
+  if (muts.some(m => [...m.addedNodes].some(n => n.nodeType === 1 && (n.matches?.('a[data-path]') || n.querySelector?.('a[data-path]')))))
+    scheduleSignFileLinks();
+}).observe(document.body, { childList: true, subtree: true });
 
 function deptName(id){
   if (id === 'GM') return 'General Manager';
@@ -2405,7 +2860,8 @@ async function submitEditRequest(){
 function gmCardHtml(c){
   const effP = c.effective_priority || c.priority;
   const emoji = OBS_EMOJI[c.detail_type] || (c.is_request ? '🙋' : '📝');
-  const badgeLabel = effP==='critical'?'Critical':effP==='medium'?'Medium':'Low';
+  // Batch 2 (J18): 'Overdue' once the task type's default due time (or the set deadline) has passed.
+  const badgeLabel = (effP==='critical'?'Critical':effP==='medium'?'Medium':'Low') + (c.is_overdue ? ' · Overdue' : '');
   const photoTag = fileLinks(c.attachment_urls, c.photo_url, c.is_request ? '📎' : '📷') + ' ' + fileLinks(c.verify_attachment_urls, c.verify_photo_url, '✅📷');
   const reqLine = c.is_request ? ` · ${deptName(c.requesting_department_id)} → ${deptName(c.department_id)}` : '';
   return `
@@ -2438,6 +2894,9 @@ function gmCardHtml(c){
         : ''}
       ${c.detail_type === 'Guest Message' && c.status !== 'completed' ? `<div style="display:flex; gap:8px; margin-top:8px;"><button class="btn ghost" style="flex:1;" onclick="openGuestConvo('${c.id}')">💬 View Conversation</button><button class="btn ghost" style="flex:1;" onclick="closeConversation('${c.id}')">✅ Close Conversation</button></div>` : ''}
       ${c.detail_type === 'F&B Order' ? `<button class="btn ghost" style="width:100%; margin-top:8px;" onclick="openOrderDetails('${c.id}')">🧾 View Order</button>` : ''}
+      ${c.status === 'ready_verify' && isGM()
+        ? `<button class="btn ${btnClass(c.status)}" style="margin-top:8px;" onclick="advance('${c.id}')">${actionLabel(c.status)}</button>`
+        : ''}
       ${requestEditCancelBtns(c)}
     </div>
   `;
@@ -2487,7 +2946,8 @@ function selectSummary(key){
 
 function cardHtml(c){
   const effP = c.effective_priority || c.priority;
-  const badgeLabel = effP==='critical'?'Critical':effP==='medium'?'Medium':'Low';
+  // Batch 2 (J18): 'Overdue' once the task type's default due time (or the set deadline) has passed.
+  const badgeLabel = (effP==='critical'?'Critical':effP==='medium'?'Medium':'Low') + (c.is_overdue ? ' · Overdue' : '');
   const emoji = OBS_EMOJI[c.detail_type] || (c.is_request ? '🙋' : '📝');
   const photoTag = fileLinks(c.attachment_urls, c.photo_url, c.is_request ? '📎' : '📷') + ' ' + fileLinks(c.verify_attachment_urls, c.verify_photo_url, '✅📷');
 
@@ -2499,9 +2959,12 @@ function cardHtml(c){
   // Engineering (fire marshals), never read-only for either.
   const isFireCase = c.detail_type === 'Fire Alarm Investigation';
   const isJointFireMarshal = isFireCase && ['ENG','SEC'].includes(currentMember?.departments?.code);
-  const isOutgoing = !isJointFireMarshal && currentMember?.department_id
+  const sentByMyDept = !isJointFireMarshal && currentMember?.department_id
     && c.requesting_department_id === currentMember.department_id
     && c.department_id !== currentMember.department_id;
+  // Batch 1 (J24, A1): an Admin may act on every case, including ones their
+  // own department sent elsewhere, so the read-only view is for staff only.
+  const isOutgoing = sentByMyDept && !isAdmin();
 
   if (isOutgoing){
     return `
@@ -2557,6 +3020,7 @@ function cardHtml(c){
         : `<button class="btn ${btnClass(c.status)}" onclick="advance('${c.id}')">${actionLabel(c.status)}</button>`}
       ${c.detail_type === 'Guest Message' && c.status !== 'completed' ? `<div style="display:flex; gap:8px; margin-top:8px;"><button class="btn ghost" style="flex:1;" onclick="openGuestConvo('${c.id}')">💬 View Conversation</button><button class="btn ghost" style="flex:1;" onclick="closeConversation('${c.id}')">✅ Close Conversation</button></div>` : ''}
       ${c.detail_type === 'F&B Order' ? `<button class="btn ghost" style="width:100%; margin-top:8px;" onclick="openOrderDetails('${c.id}')">🧾 View Order</button>` : ''}
+      ${sentByMyDept ? requestEditCancelBtns(c) : ''}
     </div>
   `;
 }
@@ -2766,7 +3230,7 @@ async function submitDM(){
   await loadEndorsements();
 }
 
-/* ---------------- Post Announcement flow (GM only) ---------------- */
+/* ---------------- Post Announcement flow (any Admin or the GM — Batch 1, Q17) ---------------- */
 function chooseAnnounce(){
   document.getElementById('chooserOverlay').classList.remove('open');
   openAnnounce();
@@ -2774,6 +3238,7 @@ function chooseAnnounce(){
 function openAnnounce(){
   document.getElementById('announceInput').value = '';
   document.getElementById('announceError').classList.remove('show');
+  if (document.getElementById('announceGuests')) document.getElementById('announceGuests').checked = false;
   document.getElementById('announceOverlay').classList.add('open');
 }
 function closeAnnounceOnBg(e){ if(e.target.id==='announceOverlay') document.getElementById('announceOverlay').classList.remove('open'); }
@@ -2790,6 +3255,7 @@ async function submitAnnouncement(){
   const { error } = await supabase.from('announcements').insert({
     message: val,
     is_active: true,
+    show_to_guests: !!document.getElementById('announceGuests')?.checked, // Batch 6 (PR12)
     created_by: currentMember?.id || null
   });
   if (error){
@@ -2820,7 +3286,7 @@ async function loadAnnouncement(){
   if (data && data.message){
     document.getElementById('announceText').textContent = data.message;
     wrap.style.display = 'block';
-    document.getElementById('announceX').style.display = isGM() ? 'inline' : 'none';
+    document.getElementById('announceX').style.display = hasHotelView() ? 'inline' : 'none'; // Batch 1 (Q17)
   } else {
     wrap.style.display = 'none';
   }
@@ -3045,6 +3511,9 @@ async function loadHotelOverviewSummary(body){
   }
   const s = data[0];
   const deptEntries = Object.entries(s.by_department || {}).sort((a,b) => b[1] - a[1]);
+  // Batch 2 (Status Matrix): open = waiting, in progress or ready to verify; rejected and cancelled counted apart.
+  const { data: sc } = await supabase.rpc('get_hotel_status_counts', { p_start: start.toISOString(), p_end: end.toISOString() });
+  const st = (sc && sc[0]) || {};
 
   body.innerHTML = `
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
@@ -3056,7 +3525,12 @@ async function loadHotelOverviewSummary(body){
       <div class="gm-stat"><span class="e">\ud83e\uddf3</span><div class="n">${s.new_checkins}</div><div class="l">New Check-ins</div></div>
       <div class="gm-stat"><span class="e">\ud83d\udd11</span><div class="n">${s.currently_checked_in}</div><div class="l">Currently Checked In</div></div>
       <div class="gm-stat"><span class="e">\ud83d\udeab</span><div class="n">${s.cancelled_cases}</div><div class="l">Cancelled</div></div>
+      <div class="gm-stat"><span class="e">\ud83d\udccc</span><div class="n">${st.open_now ?? '–'}</div><div class="l">Open Now</div></div>
+      <div class="gm-stat"><span class="e">\u274c</span><div class="n">${st.rejected_cases ?? '–'}</div><div class="l">Declined</div></div>
+      <div class="gm-stat"><span class="e">\ud83d\udd3a</span><div class="n">${st.escalated_now ?? '–'}</div><div class="l">Escalated Now</div></div>
+      <div class="gm-stat"><span class="e">\u23f0</span><div class="n">${st.overdue_now ?? '–'}</div><div class="l">Overdue Now</div></div>
     </div>
+    ${st.cancelled_time_not_recorded ? `<div style="font-size:12px; color:var(--muted); margin-top:8px;">${st.cancelled_time_not_recorded} cancelled record(s) in this period have no cancellation time (time not recorded).</div>` : ''}
     <div style="font-weight:800; margin:20px 0 10px; font-size:14px;">By Department</div>
     <div>
       ${deptEntries.map(([name, count]) => `
@@ -3320,10 +3794,11 @@ async function checkOutGuest(){
 }
 
 async function closeConversation(caseId){
+  // Batch 1 (AT5): verified_by / verified_at are stamped by the database from the login.
   const { error } = await supabase.from('cases')
-    .update({ status: 'completed', verified_at: new Date().toISOString(), verified_by: currentMember?.id || null })
+    .update({ status: 'completed' })
     .eq('id', caseId);
-  if (error){ toast("Couldn't close — try again"); return; }
+  if (error){ console.error(error); toast(dbErrorText(error, "Couldn't close — try again")); return; }
   toast('Conversation closed — a new message from this guest starts fresh');
   await loadCases();
 }
@@ -3346,11 +3821,13 @@ async function submitReject(){
     errBox.classList.add('show');
     return;
   }
+  // Batch 1 (A3, AT5): the database stamps who rejected it and when, and requires the comment.
   const { error } = await supabase.from('cases')
-    .update({ status: 'rejected', rejection_comment: comment, verified_at: new Date().toISOString(), verified_by: currentMember?.id || null })
+    .update({ status: 'rejected', rejection_comment: comment })
     .eq('id', pendingRejectId);
   if (error){
-    errBox.textContent = "Couldn't reject — check your connection and try again.";
+    console.error(error);
+    errBox.textContent = dbErrorText(error, "Couldn't reject — check your connection and try again.");
     errBox.classList.add('show');
     return;
   }
@@ -3377,11 +3854,13 @@ async function submitReply(){
     errBox.classList.add('show');
     return;
   }
+  // Batch 1 (A4, AT5): the database stamps who replied and when.
   const { error } = await supabase.from('cases')
-    .update({ status: 'completed', staff_reply: comment, verified_at: new Date().toISOString(), verified_by: currentMember?.id || null })
+    .update({ status: 'completed', staff_reply: comment })
     .eq('id', pendingReplyId);
   if (error){
-    errBox.textContent = "Couldn't send — check your connection and try again.";
+    console.error(error);
+    errBox.textContent = dbErrorText(error, "Couldn't send — check your connection and try again.");
     errBox.classList.add('show');
     return;
   }
@@ -3626,25 +4105,70 @@ async function submitEndorsement(followUpLabel){
   await loadEndorsements();
 }
 
-/* ---------------- Request Something flow ---------------- */
+/* ---------------- Request intake (Batch 4: task types, item lines, J34 / J36) ----------------
+   Step 1 departments · Step 2 search the task types (names and the register's wording) or describe it ·
+   Step 3 items with a quantity of 1-4 per line, room or place, task details, note, follow-up ·
+   confirm the quantities · Step 4 when. One server call creates everything (create_request). */
+let intakeTypes = [];          // selectable task types with their intake settings
+let intakeItemsByType = {};    // task type code -> requestable items
+let intakeAliasIndex = [];     // [{p: wording, c: task type code}]
+let intakeDueMin = {};         // escalation group -> standard due minutes
+const INTAKE_ROOMS = (() => { const r = []; [2,3,4,5].forEach(f => { for (let n = 1; n <= 17; n++) r.push(String(f*100 + n)); }); r.push('601','602','603'); return r; })();
+const INTAKE_PLACES = ['Lobby','Front desk','Back office','Admin office','Imo Bar','Coppa Cafe','Kitchen','Marsa','Nuxe Function Room','Prime Mezzanine','Pool','Parking','Elevator','Staircase','2nd floor hallway','3rd floor hallway','4th floor hallway','5th floor hallway','6th floor hallway','2nd floor pantry','3rd floor pantry','4th floor pantry','5th floor pantry','Laundry area','Building 2'];
+const G15_SYMPTOMS = ["Won't lock", "Won't open", 'Blocked from inside', 'Knob or handle loose or broken', 'Keeps beeping', 'Card reader not working', 'Other'];
+
+async function reloadIntakeCatalog(){
+  try {
+    const [t, ti, it, al, eg] = await Promise.all([
+      supabase.from('task_types').select('code,name,default_department_code,escalation_group,intake_class').eq('selectable', true),
+      supabase.from('task_type_intake').select('task_type_code,intake_label,place,priority_flag,sort_order,alert_department_codes'),
+      supabase.from('intake_items').select('code,task_type_code,label,max_qty,sort_order').eq('active', true).order('sort_order'),
+      supabase.from('task_type_aliases').select('pattern,task_type_code'),
+      supabase.from('escalation_groups').select('code,default_due_min')
+    ]);
+    const intake = {};
+    (ti.data || []).forEach(x => { intake[x.task_type_code] = x; });
+    intakeTypes = (t.data || []).filter(x => intake[x.code]).map(x => ({
+      code: x.code, name: x.name, dept: x.default_department_code, grp: x.escalation_group,
+      label: intake[x.code].intake_label, place: intake[x.code].place, prio: intake[x.code].priority_flag, sort: intake[x.code].sort_order,
+      alerts: intake[x.code].alert_department_codes || null,
+      problem: x.intake_class === 'Maintenance defect' || x.intake_class === 'Safety concern'
+    })).sort((a, b) => a.sort - b.sort);
+    intakeItemsByType = {};
+    (it.data || []).forEach(x => { (intakeItemsByType[x.task_type_code] = intakeItemsByType[x.task_type_code] || []).push(x); });
+    intakeAliasIndex = (al.data || [])
+      .map(a => ({ p: a.pattern.replace(/\{room\}|\[name\]/g, ' ').replace(/\s+/g, ' ').trim(), c: a.task_type_code }))
+      .filter(a => a.p.length >= 3);
+    intakeDueMin = {};
+    (eg.data || []).forEach(g => { intakeDueMin[g.code] = g.default_due_min; });
+  } catch (err) {
+    console.error('intake catalog', err);
+  }
+}
+
+function newClientToken(){
+  try { if (crypto && crypto.randomUUID) return crypto.randomUUID(); } catch (_) {}
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, ch => {
+    const r = Math.random() * 16 | 0; return (ch === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+  });
+}
+
 function openRequest(){
-  reqState = { departmentIds:[], departmentNames:[], category:null, quantity:null, attachmentUrls:[] };
+  reqState = { departmentIds:[], departmentNames:[], typeCode:null, label:null, qty:{}, room:'', place:'', placeOther:'',
+               fields:{}, note:'', followUpOf:null, guestWaiting:false, attachmentUrls:[], token:newClientToken(), sending:false, showAll:false };
   document.getElementById('reqAttachStatus').textContent='';
   document.getElementById('reqFileInput').value='';
+  ['reqStep2','reqStepOther','reqStep3','reqStepConfirm','reqStep4'].forEach(id => { document.getElementById(id).style.display='none'; });
   document.getElementById('reqStep1').style.display='block';
-  document.getElementById('reqStep2').style.display='none';
-  document.getElementById('reqStepOther').style.display='none';
-  document.getElementById('reqStep3').style.display='none';
-  document.getElementById('reqStep4').style.display='none';
   document.getElementById('reqOtherInput').value='';
   document.getElementById('reqOtherError').classList.remove('show');
-  document.getElementById('reqQuantityInput').value='';
   document.getElementById('reqQuantityError').classList.remove('show');
+  document.getElementById('reqTypeSearch').value='';
   document.getElementById('reqDueGrid').style.display='grid';
   document.getElementById('reqDeadlinePickerRow').style.display='none';
   document.getElementById('reqDeadlineInput').value='';
+  document.getElementById('reqStep4').style.pointerEvents='';
   buildReqDeptGrid();
-  buildReqCategoryGrid();
   document.getElementById('requestOverlay').classList.add('open');
 }
 function closeRequestOnBg(e){ if(e.target.id==='requestOverlay') document.getElementById('requestOverlay').classList.remove('open'); }
@@ -3654,7 +4178,7 @@ function buildReqDeptGrid(){
     const isOwn = d.id === currentMember?.department_id;
     const selected = reqState.departmentIds.includes(d.id);
     const label = isOwn ? `${d.name} (My Team)` : d.name;
-    return `<div class="opt${selected ? ' sel' : ''}" onclick="selectReqDeptIdx(${i})">${selected ? '✅ ' : ''}${label}</div>`;
+    return `<div class="opt${selected ? ' sel' : ''}" onclick="selectReqDeptIdx(${i})">${selected ? '✅ ' : ''}${escHtml(label)}</div>`;
   }).join('');
   const btn = document.getElementById('reqDeptNextBtn');
   if (btn) btn.disabled = reqState.departmentIds.length === 0;
@@ -3676,50 +4200,78 @@ function reqDeptNext(){
   if (!reqState.departmentIds.length) return;
   document.getElementById('reqStep1').style.display='none';
   document.getElementById('reqStep2').style.display='block';
+  buildReqTypeList();
+}
+function reqBackToDepts(){
+  document.getElementById('reqStep2').style.display='none';
+  document.getElementById('reqStep1').style.display='block';
 }
 
-function buildReqCategoryGrid(){
-  document.getElementById('reqCategoryGrid').innerHTML = requestCategories.map((c,i) =>
-    `<div class="opt" onclick="selectReqCategoryIdx(${i})"><span class="e">${c.emoji}</span>${c.label === 'Other' ? 'Search/Other' : escHtml(c.label)}</div>`
-  ).join('');
+function reqDeptCodes(){
+  return reqState.departmentIds.map(id => (allDepartments.find(d => d.id === id) || {}).code).filter(Boolean);
 }
-function selectReqCategoryIdx(i){
-  const c = requestCategories[i];
-  if (c) selectReqCategory(c.label);
+function typeForDepts(t, codes){ return codes.includes(t.dept) || (t.alerts || []).some(c => codes.includes(c)); }
+function intakeMatches(raw){
+  const q = (raw || '').trim().toLowerCase();
+  const codes = reqDeptCodes();
+  if (!q){
+    const mine = intakeTypes.filter(t => typeForDepts(t, codes));
+    return (reqState.showAll || !mine.length) ? intakeTypes : mine;
+  }
+  const words = q.split(/\s+/).filter(Boolean);
+  const hit = s => words.every(w => s.includes(w));
+  const score = new Map();
+  intakeTypes.forEach(t => {
+    const l = t.label.toLowerCase(), n = t.name.toLowerCase();
+    let s = 0;
+    if (l.startsWith(q) || n.startsWith(q)) s = 3;
+    else if (hit(l) || hit(n)) s = 2;
+    if (s) score.set(t.code, s + (typeForDepts(t, codes) ? 0.5 : 0));
+  });
+  intakeAliasIndex.forEach(a => { const at = intakeTypes.find(t => t.code === a.c); if (at && !score.has(a.c) && hit(a.p)) score.set(a.c, 1 + (typeForDepts(at, codes) ? 0.5 : 0)); });
+  return intakeTypes.filter(t => score.has(t.code))
+    .sort((a, b) => (score.get(b.code) - score.get(a.code)) || (a.sort - b.sort))
+    .slice(0, 15);
 }
-function selectReqCategory(label){
-  if (label === 'Other'){
-    document.getElementById('reqStep2').style.display='none';
-    document.getElementById('reqStepOther').style.display='block';
-    document.getElementById('reqOtherInput').value = '';
-    document.getElementById('reqOtherSuggestions').innerHTML = '';
-    document.getElementById('reqOtherInput').focus();
+function buildReqTypeList(){
+  const q = document.getElementById('reqTypeSearch').value;
+  const list = intakeMatches(q);
+  const box = document.getElementById('reqTypeList');
+  if (!intakeTypes.length){
+    box.innerHTML = '<p style="color:var(--muted); font-size:13px;">The list could not be loaded. Describe the request below instead.</p>';
     return;
   }
-  reqState.category = label;
+  let html = list.map(t =>
+    `<div class="opt" style="text-align:left; margin-top:6px;" onclick="selectReqType('${t.code}')">
+       <div style="font-weight:700;">${escHtml(t.label)}</div>
+       ${t.label.toLowerCase() !== t.name.toLowerCase() ? `<div style="font-size:11px; color:var(--muted); font-weight:500;">${escHtml(t.name)}</div>` : ''}
+     </div>`).join('');
+  if (!list.length) html = '<p style="color:var(--muted); font-size:13px;">Nothing matches. Try another word, or describe it below.</p>';
+  if (!q.trim() && !reqState.showAll && list.length < intakeTypes.length){
+    html += `<div style="text-align:center; margin-top:8px;"><a href="#" onclick="reqState.showAll=true; buildReqTypeList(); return false;" style="font-size:13px;">Show all request types</a></div>`;
+  }
+  box.innerHTML = html;
+}
+function selectReqType(code){
+  const t = intakeTypes.find(x => x.code === code);
+  if (!t) return;
+  reqState.typeCode = code;
+  reqState.label = t.label;
+  reqState.qty = {};
+  (intakeItemsByType[code] || []).forEach(i => { reqState.qty[i.code] = [0]; });
+  reqState.fields = code === 'B06' ? { kids: '0', infants: '0', pets: '0', extra_bed: 'no' } : {};
+  reqState.room = ''; reqState.place = ''; reqState.placeOther = ''; reqState.followUpOf = null; reqState.guestWaiting = false;
   document.getElementById('reqStep2').style.display='none';
+  renderReqDetails();
   document.getElementById('reqStep3').style.display='block';
 }
-function filterReqOtherSuggestions(){
-  const val = document.getElementById('reqOtherInput').value.trim().toLowerCase();
-  const box = document.getElementById('reqOtherSuggestions');
-  if (!val){ box.innerHTML = ''; return; }
-  const matches = requestCategories
-    .filter(c => c.label !== 'Other' && c.label.toLowerCase().includes(val))
-    .slice(0, 5);
-  if (!matches.length){ box.innerHTML = ''; return; }
-  box.innerHTML = '<div style="font-size:11px; color:var(--muted); margin:8px 0 4px;">Already exists — tap to use instead:</div>' +
-    matches.map(c => `<div class="opt" style="padding:10px 14px; margin-top:6px;" onclick="selectExistingFromOther('${c.label.replace(/'/g,"\\'")}')"><span class="e">${c.emoji}</span>${escHtml(c.label)}</div>`).join('');
-}
-function selectExistingFromOther(label){
-  document.getElementById('reqOtherInput').value = '';
-  document.getElementById('reqOtherSuggestions').innerHTML = '';
-  document.getElementById('reqStepOther').style.display = 'none';
-  reqState.category = label;
-  document.getElementById('reqStep3').style.display = 'block';
+function selectReqOther(){
+  document.getElementById('reqStep2').style.display='none';
+  document.getElementById('reqStepOther').style.display='block';
+  document.getElementById('reqOtherInput').value = document.getElementById('reqTypeSearch').value.trim();
+  document.getElementById('reqOtherInput').focus();
 }
 function reqBackToCategory(){
-  document.getElementById('reqOtherSuggestions').innerHTML = '';
   document.getElementById('reqStepOther').style.display='none';
   document.getElementById('reqStep2').style.display='block';
 }
@@ -3732,23 +4284,226 @@ function reqConfirmOther(){
     return;
   }
   errBox.classList.remove('show');
-  reqState.category = val;
+  reqState.typeCode = null;
+  reqState.label = val;
+  reqState.qty = {}; reqState.fields = {}; reqState.room = ''; reqState.place = ''; reqState.placeOther = ''; reqState.followUpOf = null; reqState.guestWaiting = false;
   document.getElementById('reqStepOther').style.display='none';
+  renderReqDetails();
   document.getElementById('reqStep3').style.display='block';
 }
-function reqConfirmQuantity(){
-  const val = document.getElementById('reqQuantityInput').value.trim();
-  const errBox = document.getElementById('reqQuantityError');
-  if (!val){
-    errBox.textContent = 'Enter a quantity or detail to continue.';
-    errBox.classList.add('show');
-    return;
-  }
-  errBox.classList.remove('show');
-  reqState.quantity = val;
+function reqBackFromDetails(){
   document.getElementById('reqStep3').style.display='none';
+  document.getElementById(reqState.typeCode ? 'reqStep2' : 'reqStepOther').style.display='block';
+}
+
+const REQ_SELECT_STYLE = 'width:100%; padding:11px; border:1px solid var(--line); border-radius:10px; font-size:15px; background:var(--surface); color:var(--ink);';
+function reqQtyOptions(sel, max){
+  let o = `<option value="0"${sel === 0 ? ' selected' : ''}>–</option>`;
+  for (let n = 1; n <= (max || 4); n++) o += `<option value="${n}"${sel === n ? ' selected' : ''}>${n}</option>`;
+  return o;
+}
+function renderReqItems(){
+  const items = intakeItemsByType[reqState.typeCode] || [];
+  const box = document.getElementById('reqItemsBox');
+  if (!items.length){ box.innerHTML = ''; return; }
+  box.innerHTML = `<div class="field" style="margin-top:0;"><label>Items and how many (1 to 4 per line)</label>` + items.map(i => {
+    const lines = reqState.qty[i.code] || [0];
+    return lines.map((q, li) => `
+      <div style="display:flex; align-items:center; gap:10px; margin-top:6px;">
+        <div style="flex:1; font-size:14px; font-weight:600;">${escHtml(i.label)}${li ? ` <span style="color:var(--muted); font-weight:500;">(line ${li + 1})</span>` : ''}</div>
+        <select style="${REQ_SELECT_STYLE} width:78px;" onchange="setReqQty('${i.code}', ${li}, this.value)">${reqQtyOptions(q, i.max_qty)}</select>
+      </div>`).join('') +
+      ((lines[lines.length - 1] === (i.max_qty || 4) && lines.length < 3)
+        ? `<div style="text-align:right;"><a href="#" style="font-size:12px;" onclick="addReqLine('${i.code}'); return false;">+ more ${escHtml(i.label.toLowerCase())} (new line)</a></div>` : '');
+  }).join('') + `</div>`;
+}
+function setReqQty(code, li, val){
+  const lines = reqState.qty[code] || [0];
+  lines[li] = Number(val) || 0;
+  reqState.qty[code] = lines;
+  renderReqItems();
+}
+function addReqLine(code){
+  (reqState.qty[code] = reqState.qty[code] || [0]).push(0);
+  renderReqItems();
+}
+function reqItemLines(){
+  const out = [];
+  Object.keys(reqState.qty).forEach(code => (reqState.qty[code] || []).forEach(q => { if (q > 0) out.push({ code, qty: q }); }));
+  return out;
+}
+function reqItemLabel(code){
+  const i = (intakeItemsByType[reqState.typeCode] || []).find(x => x.code === code);
+  return i ? i.label : code;
+}
+
+function reqPlaceMode(){
+  if (!reqState.typeCode) return 'room_or_place';
+  const t = intakeTypes.find(x => x.code === reqState.typeCode);
+  return t ? t.place : 'none';
+}
+function renderReqPlace(){
+  const mode = reqPlaceMode();
+  const box = document.getElementById('reqPlaceBox');
+  if (mode === 'none'){ box.innerHTML = ''; return; }
+  const roomOpts = INTAKE_ROOMS.map(r => `<option value="room:${r}"${reqState.room === r ? ' selected' : ''}>Room ${r}</option>`).join('');
+  const placeOpts = INTAKE_PLACES.map(p => `<option value="place:${escHtml(p)}"${reqState.place === p ? ' selected' : ''}>${escHtml(p)}</option>`).join('');
+  const label = mode === 'room' ? 'Room' : (mode === 'place' ? 'Place' : 'Room or place');
+  box.innerHTML = `<div class="field"><label>${label}</label>
+    <select id="reqPlaceSelect" style="${REQ_SELECT_STYLE}" onchange="setReqPlace(this.value)">
+      <option value="">Choose…</option>
+      ${mode !== 'place' ? `<optgroup label="Rooms">${roomOpts}</optgroup>` : ''}
+      ${mode !== 'room' ? `<optgroup label="Places">${placeOpts}<option value="other"${reqState.placeOther ? ' selected' : ''}>Other place…</option></optgroup>` : ''}
+    </select>
+    ${reqState.placeOther !== '' || (document.getElementById('reqPlaceSelect') || {}).value === 'other'
+      ? `<input type="text" id="reqPlaceOtherInput" maxlength="80" style="margin-top:8px;" placeholder="Where exactly?" value="${escHtml(reqState.placeOther)}" oninput="reqState.placeOther=this.value" />` : ''}
+  </div>`;
+}
+function setReqPlace(v){
+  reqState.room = ''; reqState.place = '';
+  if (v.startsWith('room:')) reqState.room = v.slice(5);
+  else if (v.startsWith('place:')) reqState.place = v.slice(6);
+  if (v === 'other'){ reqState.placeOther = reqState.placeOther || ' '; } else { reqState.placeOther = ''; }
+  renderReqPlace();
+  if (v === 'other'){ const el = document.getElementById('reqPlaceOtherInput'); if (el){ el.value = ''; reqState.placeOther = ''; el.focus(); } }
+  renderReqFollowUp();
+}
+
+function renderReqFields(){
+  const box = document.getElementById('reqFieldsBox');
+  const code = reqState.typeCode;
+  const t = intakeTypes.find(x => x.code === code);
+  const f = reqState.fields;
+  let html = '';
+  const sel = (key, opts, cur) => `<select style="${REQ_SELECT_STYLE}" onchange="reqState.fields['${key}']=this.value">${
+    opts.map(o => `<option value="${escHtml(o)}"${String(cur) === String(o) ? ' selected' : ''}>${o === '' ? 'Choose…' : escHtml(o)}</option>`).join('')}</select>`;
+  const roomSel = (key, cur) => `<select style="${REQ_SELECT_STYLE}" onchange="reqState.fields['${key}']=this.value"><option value="">Choose…</option>${
+    INTAKE_ROOMS.map(r => `<option value="${r}"${cur === r ? ' selected' : ''}>Room ${r}</option>`).join('')}</select>`;
+  if (code === 'B05'){
+    html += `<div class="field"><label>From room</label>${roomSel('from_room', f.from_room || '')}</div>
+             <div class="field"><label>To room</label>${roomSel('to_room', f.to_room || '')}</div>`;
+  }
+  if (code === 'B06'){
+    html += `<div style="display:flex; gap:10px;">
+      <div class="field" style="flex:1;"><label>Adults</label>${sel('adults', ['','1','2','3','4','5','6'], f.adults || '')}</div>
+      <div class="field" style="flex:1;"><label>Kids</label>${sel('kids', ['0','1','2','3','4'], f.kids || '0')}</div></div>
+      <div style="display:flex; gap:10px;">
+      <div class="field" style="flex:1;"><label>Infants</label>${sel('infants', ['0','1','2'], f.infants || '0')}</div>
+      <div class="field" style="flex:1;"><label>Pets</label>${sel('pets', ['0','1','2'], f.pets || '0')}</div>
+      <div class="field" style="flex:1;"><label>Extra bed</label>${sel('extra_bed', ['no','yes'], f.extra_bed || 'no')}</div></div>
+      <div style="font-size:12px; color:var(--muted); margin-top:6px;">2 bottled waters per registered guest, infants and pets included (J26).</div>
+      <div class="field"><label>Group or function (optional)</label><input type="text" maxlength="60" placeholder="e.g. DOH, function" value="${escHtml(f.group || '')}" oninput="if(this.value.trim()) reqState.fields.group=this.value.trim(); else delete reqState.fields.group;" /></div>`;
+  }
+  if (code === 'G15'){
+    html += `<div class="field"><label>What is wrong with the door?</label><select style="${REQ_SELECT_STYLE}" onchange="reqState.fields.symptom=this.value; renderReqFields();">
+      <option value="">Choose…</option>${G15_SYMPTOMS.map(s => `<option value="${escHtml(s)}"${f.symptom === s ? ' selected' : ''}>${escHtml(s)}${s === 'Blocked from inside' ? ' (urgent)' : ''}</option>`).join('')}</select>
+      ${f.symptom === 'Blocked from inside' ? '<div style="font-size:12px; color:var(--red); margin-top:6px; font-weight:700;">Sent as urgent (critical).</div>' : ''}</div>`;
+  }
+  if (t && t.prio){
+    html += `<label style="display:flex; align-items:center; gap:8px; margin-top:12px; font-size:14px;">
+      <input type="checkbox" ${reqState.guestWaiting ? 'checked' : ''} onchange="reqState.guestWaiting=this.checked" style="width:auto;" /> Guest waiting: please prioritize</label>`;
+  }
+  if (!t || t.problem){
+    html += `<label style="display:flex; align-items:center; gap:8px; margin-top:12px; font-size:14px;">
+      <input type="checkbox" id="reqGuestReported" ${f.guest_reported ? 'checked' : ''} onchange="if(this.checked) reqState.fields.guest_reported=true; else delete reqState.fields.guest_reported;" style="width:auto;" /> A guest reported this</label>`;
+  }
+  if (t && t.alerts && t.alerts.length){
+    const names = t.alerts.map(c => (allDepartments.find(d => d.code === c) || {}).name || c);
+    html = `<div style="font-size:13px; margin:6px 0 4px; padding:10px; border-radius:10px; background:var(--blue-tint); color:var(--blue-ink);">Goes to <b>${names.map(escHtml).join(', ')}</b>: each gets its own task.</div>` + html;
+  }
+  box.innerHTML = html;
+}
+
+function reqFollowUpCandidates(){
+  if (!reqState.typeCode) return [];
+  const since = Date.now() - 24 * 3600 * 1000;
+  const room = reqState.room;
+  return (cases || []).filter(c =>
+    c.task_type_code === reqState.typeCode &&
+    ['waiting','in_progress','ready_verify','completed'].includes(c.status) &&
+    new Date(c.created_at).getTime() >= since &&
+    (!room || String(c.asset_label || '').includes(room) || String(c.title || '').includes(room))
+  ).sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 3);
+}
+function renderReqFollowUp(){
+  const box = document.getElementById('reqFollowUpBox');
+  const list = reqFollowUpCandidates();
+  if (!list.length){ box.innerHTML = ''; reqState.followUpOf = null; return; }
+  if (reqState.followUpOf && !list.some(c => c.id === reqState.followUpOf)) reqState.followUpOf = null;
+  box.innerHTML = `<div class="field"><label>Is this a follow-up of an earlier request?</label>
+    <label style="display:flex; gap:8px; font-size:13px; margin-top:8px; text-transform:none; letter-spacing:0; font-weight:500; color:var(--ink);"><input type="radio" name="reqFollow" style="width:auto;" ${!reqState.followUpOf ? 'checked' : ''} onchange="reqState.followUpOf=null" /> No, a new request</label>
+    ${list.map(c => `<label style="display:flex; gap:8px; font-size:13px; margin-top:8px; text-transform:none; letter-spacing:0; font-weight:500; color:var(--ink);"><input type="radio" name="reqFollow" style="width:auto;" ${reqState.followUpOf === c.id ? 'checked' : ''} onchange="reqState.followUpOf='${c.id}'" />
+      <span>Follow-up of: ${escHtml(c.title || c.detail_type)} · ${escHtml(c.asset_label || '')} · ${fmtTime(c.created_at)} (${escHtml(c.status.replace('_', ' '))})</span></label>`).join('')}
+  </div>`;
+}
+
+function renderReqDetails(){
+  document.getElementById('reqDetailTitle').textContent = reqState.label || 'Details';
+  document.getElementById('reqNoteInput').value = reqState.note || '';
+  document.getElementById('reqQuantityError').classList.remove('show');
+  renderReqItems();
+  renderReqPlace();
+  renderReqFields();
+  renderReqFollowUp();
+}
+
+function reqConfirmDetails(){
+  const errBox = document.getElementById('reqQuantityError');
+  const fail = (msg) => { errBox.textContent = msg; errBox.classList.add('show'); };
+  reqState.note = document.getElementById('reqNoteInput').value.trim();
+  const otherEl = document.getElementById('reqPlaceOtherInput');
+  if (otherEl) reqState.placeOther = otherEl.value.trim();
+  if (otherEl && reqState.placeOther) reqState.place = reqState.placeOther;
+  const mode = reqPlaceMode();
+  const lines = reqItemLines();
+  const hasItems = (intakeItemsByType[reqState.typeCode] || []).length > 0;
+  if (hasItems && !lines.length && !reqState.note) return fail('Choose at least one item and how many, or write what is needed in the note.');
+  if (mode === 'room' && !reqState.room) return fail('Choose the room.');
+  if (mode === 'place' && !reqState.place) return fail('Choose the place.');
+  if (mode === 'room_or_place' && !reqState.room && !reqState.place) return fail('Choose the room or the place.');
+  if (reqState.typeCode === 'B05' && (!reqState.fields.from_room || !reqState.fields.to_room)) return fail('Choose both rooms of the transfer.');
+  if (reqState.typeCode === 'B06' && !reqState.fields.adults) return fail('Choose the number of adults.');
+  if (reqState.typeCode === 'G15' && !reqState.fields.symptom) return fail('Choose what is wrong with the door.');
+  errBox.classList.remove('show');
+  document.getElementById('reqStep3').style.display='none';
+  if (lines.length){
+    // J34: quantities are confirmed before anything is sent.
+    document.getElementById('reqConfirmList').innerHTML =
+      `<div style="font-size:14px; margin:6px 0 4px; font-weight:700;">${escHtml(reqState.label)}${reqState.room ? ' · Room ' + escHtml(reqState.room) : (reqState.place ? ' · ' + escHtml(reqState.place) : '')}</div>` +
+      lines.map(l => `<div class="asset-row"><span class="n">${escHtml(reqItemLabel(l.code))}</span><span style="font-weight:800; font-size:18px;">× ${l.qty}</span></div>`).join('') +
+      (reqState.note ? `<div style="font-size:13px; color:var(--muted); margin-top:6px;">Note: ${escHtml(reqState.note)}</div>` : '');
+    document.getElementById('reqStepConfirm').style.display='block';
+  } else {
+    showReqStep4();
+  }
+}
+function reqConfirmEdit(){
+  document.getElementById('reqStepConfirm').style.display='none';
+  renderReqItems();
+  document.getElementById('reqStep3').style.display='block';
+}
+function reqBackFromStep4(){
+  document.getElementById('reqStep4').style.display='none';
+  document.getElementById('reqStep3').style.display='block';
+}
+function chooseTypeReview(){
+  document.getElementById('chooserOverlay').classList.remove('open');
+  openTypeReview();
+}
+function reqConfirmYes(){
+  document.getElementById('reqStepConfirm').style.display='none';
+  showReqStep4();
+}
+function showReqStep4(){
+  const t = intakeTypes.find(x => x.code === reqState.typeCode);
+  const m = t ? intakeDueMin[t.grp] : null;
+  const fmt = (min) => min >= 120 ? `${Math.round(min / 60)} hours` : (min >= 60 ? '1 hour' : `${min} minutes`);
+  document.getElementById('reqDueStd').textContent = m
+    ? `Standard for this request: done within ${fmt(m)} of the time you choose (ASAP: from now).`
+    : '';
   document.getElementById('reqStep4').style.display='block';
 }
+
 function showReqDeadlinePicker(){
   document.getElementById('reqDueGrid').style.display='none';
   document.getElementById('reqDeadlinePickerRow').style.display='block';
@@ -3766,39 +4521,858 @@ function submitReqDeadlinePicked(){
   submitRequest(label, dt.toISOString());
 }
 async function submitRequest(neededLabel, deadlineISO){
-  if (!reqState.departmentIds.length || !reqState.category || !reqState.quantity){
+  if (!reqState.departmentIds.length || !reqState.label){
     toast('Please complete all steps');
     return;
   }
-  // One case per department: each accepts, works, and verifies its own copy.
-  // A real deadline starts LOW — not urgent right now by definition — and
-  // v_cases handles the 10-min-before/10-min-past countdown from here;
-  // preset labels (ASAP etc.) are untouched, same as they've always worked.
-  const rows = reqState.departmentIds.map(id => ({
-    title: `${reqState.category} requested`,
-    detail_type: reqState.category,
-    asset_label: reqState.quantity,
-    department_id: id,
-    requesting_department_id: currentMember?.department_id || null,
-    is_request: true,
-    due_label: neededLabel,
-    deadline_at: deadlineISO || null,
-    ...(deadlineISO ? { priority: 'low' } : {}),
-    status: 'waiting',
-    created_by: currentMember?.id || null,
-    photo_url: reqState.attachmentUrls[0] || null,
-    attachment_urls: reqState.attachmentUrls.length ? reqState.attachmentUrls : null
-  }));
-  const { error } = await supabase.from('cases').insert(rows);
+  if (reqState.sending) return;               // double-tap guard (the server also ignores a repeated token)
+  reqState.sending = true;
+  document.getElementById('reqStep4').style.pointerEvents='none';
+  const { data, error } = await supabase.rpc('create_request', {
+    p_client_token: reqState.token,
+    p_department_ids: reqState.departmentIds,
+    p_task_type_code: reqState.typeCode,
+    p_label: reqState.typeCode ? null : reqState.label,
+    p_room: reqState.room || null,
+    p_place: reqState.room ? null : (reqState.place || null),
+    p_items: reqItemLines(),
+    p_fields: reqState.fields || {},
+    p_note: reqState.note || null,
+    p_due_label: neededLabel,
+    p_deadline: deadlineISO || null,
+    p_photo_url: reqState.attachmentUrls[0] || null,
+    p_attachment_urls: reqState.attachmentUrls.length ? reqState.attachmentUrls : null,
+    p_follow_up_of: reqState.followUpOf || null,
+    p_guest_waiting: !!reqState.guestWaiting
+  });
+  reqState.sending = false;
+  document.getElementById('reqStep4').style.pointerEvents='';
   if (error){
     console.error(error);
-    toast("Couldn't submit — check your connection and try again");
+    toast(error.code === 'P0001' && error.message ? error.message : "Couldn't submit — check your connection and try again");
     return;
   }
   document.getElementById('requestOverlay').classList.remove('open');
-  toast(`Sent to ${reqState.departmentNames.join(', ')}`);
+  const sentType = intakeTypes.find(x => x.code === reqState.typeCode);
+  const sentTo = sentType && sentType.alerts && sentType.alerts.length
+    ? sentType.alerts.map(c => (allDepartments.find(d => d.code === c) || {}).name || c) : reqState.departmentNames;
+  toast(data && data.duplicate ? 'Already sent — not sent twice' : `Sent to ${sentTo.join(', ')}`);
   showTab('home');
   await loadCases();
+}
+
+/* ---------------- Kitchen and El Niño (Batch 6) ----------------
+   Temperature round (J35: every reading picked from a list and confirmed; GM 20 Oct alarm rule), deviations and the
+   Chef's decision, vegetable level V0-V3 with paused dishes, kitchen roles, Red-day service (J27) and the El Niño
+   readiness board. */
+let myRoleTags = [];
+async function loadMyRoleTags(){
+  if (!currentMember) { myRoleTags = []; return; }
+  const { data } = await supabase.from('member_role_tags').select('tag').eq('member_id', currentMember.id).eq('active', true);
+  myRoleTags = (data || []).map(x => x.tag);
+}
+function hasTag(t){ return myRoleTags.includes(t); }
+function myDeptCode(){ return currentMember?.departments?.code || ''; }
+function isChefLike(){ return isGM() || hasTag('executive_chef') || hasTag('food_safety_lead'); }
+function canSetVeg(){ return isGM() || hasTag('executive_chef') || hasTag('inventory_manager'); }
+function showKitchenPanel(){ return ['KITCHEN', 'CAFE'].includes(myDeptCode()) || hasHotelView() || myRoleTags.length > 0; }
+
+const VEG_LEVELS = {
+  V0: { name: 'Normal', text: 'Full menu' },
+  V1: { name: 'Price spike', text: 'Smaller garnish and portions; full menu' },
+  V2: { name: 'Partial shortage', text: 'Pause some dishes; substitute in best-sellers' },
+  V3: { name: 'Severe shortage', text: 'Reduced core menu; no raw salads (GM approval within 24 hours)' }
+};
+
+async function loadKitchenPanel(){
+  const wrap = document.getElementById('kitchenPanel');
+  if (!wrap) return;
+  if (!showKitchenPanel()){ wrap.style.display = 'none'; return; }
+  wrap.style.display = 'block';
+  const [round, devs, veg] = await Promise.all([
+    supabase.rpc('get_temperature_round'),
+    supabase.from('temperature_deviations').select('id', { count: 'exact', head: true }).eq('status', 'open'),
+    supabase.rpc('get_veg_status')
+  ]);
+  const units = (round.data && round.data.units) || [];
+  const live = units.filter(u => u.in_service && u.in_round);
+  const done = live.filter(u => u.last).length;
+  const slot = round.data ? (round.data.slot === 'morning' ? 'Morning' : 'Afternoon') : '';
+  const recheck = live.filter(u => u.last && u.last.recheck_open).length;
+  const openDev = devs.count || 0;
+  const level = (veg.data && veg.data.level) || 'V0';
+  const row = (icon, title, sub, onclick, warn) =>
+    `<div class="opt" onclick="${onclick}" style="padding:14px; margin-top:8px; display:flex; align-items:center; gap:12px; text-align:left;${warn ? ' border-color:var(--red);' : ''}">
+       <span class="e" style="font-size:22px;">${icon}</span>
+       <div style="flex:1;"><div style="font-weight:700;">${title}</div><div style="font-size:12px; color:${warn ? 'var(--red)' : 'var(--muted)'}; font-weight:500; margin-top:2px;">${sub}</div></div><span>›</span></div>`;
+  let html = '';
+  if (live.length) html += row('🌡️', `Temperature round · ${slot}`, `${done} of ${live.length} recorded${recheck ? ` · ${recheck} re-check due` : ''}`, 'openTempRound()', recheck > 0);
+  html += row('⚠️', 'Temperature deviations', openDev ? `${openDev} open: the Chef decides on the food` : 'None open', 'openDeviations()', openDev > 0);
+  html += row('🥬', 'Vegetables and menu', `Level ${level} · ${VEG_LEVELS[level].name}`, 'openVeg()', level === 'V2' || level === 'V3');
+  document.getElementById('kitchenPanelBody').innerHTML = html;
+}
+
+/* Temperature lists (J35): whole degrees, an option beyond each end, nothing pre-selected. */
+function tempLabel(v, kind){
+  if (kind === 'chiller' && v === -7) return 'Colder than −6 °C';
+  if (kind === 'freezer' && v === -19) return 'Colder than −18 °C';
+  if ((kind === 'chiller' || kind === 'freezer') && v === 11) return 'Warmer than +10 °C';
+  if (kind === 'hot' && v === 49) return 'Colder than 50 °C';
+  if (kind === 'hot' && v === 91) return 'Hotter than 90 °C';
+  return v > 0 ? `+${v} °C` : (v < 0 ? `−${Math.abs(v)} °C` : '0 °C');
+}
+function tempOutOfLimit(v, kind){ return kind === 'chiller' ? v > 6 : kind === 'freezer' ? v > -12 : v < 60; }
+function tempOptions(kind){
+  const vals = [];
+  if (kind === 'hot'){ for (let v = 91; v >= 49; v--) vals.push(v); }
+  else { const min = kind === 'freezer' ? -19 : -7; for (let v = 11; v >= min; v--) vals.push(v); }
+  return vals;
+}
+
+let roundData = null, roundPick = null, roundAlarm = null;
+async function openTempRound(){
+  roundPick = null; roundAlarm = null;
+  document.getElementById('tempRoundOverlay').classList.add('open');
+  await reloadRound();
+}
+function closeTempRoundOnBg(e){ if (e.target.id === 'tempRoundOverlay') closeTempRound(); }
+function closeTempRound(){ document.getElementById('tempRoundOverlay').classList.remove('open'); loadKitchenPanel(); }
+async function reloadRound(){
+  const { data, error } = await supabase.rpc('get_temperature_round');
+  if (error){ document.getElementById('tempRoundBody').innerHTML = '<p style="color:var(--red); font-size:13px;">Could not load the round.</p>'; return; }
+  roundData = data;
+  renderRound();
+}
+function renderRound(){
+  const body = document.getElementById('tempRoundBody');
+  const units = (roundData && roundData.units) || [];
+  const live = units.filter(u => u.in_service && u.in_round);
+  const done = live.filter(u => u.last).length;
+  document.getElementById('tempRoundSub').textContent =
+    `${roundData && roundData.slot === 'morning' ? 'MORNING' : 'AFTERNOON'} · ${done} OF ${live.length}${roundData && roundData.red_day ? ' · RED DAY' : ''}`;
+  const areas = [];
+  units.forEach(u => { if (!areas.includes(u.area)) areas.push(u.area); });
+  const selStyle = 'width:150px; padding:9px; border:1px solid var(--line); border-radius:10px; font-size:14px; background:var(--surface); color:var(--ink);';
+  let html = `<div style="font-size:12px; color:var(--muted); margin-bottom:8px;">Pick the reading for each unit, then confirm it. Chillers <b>+6 °C or colder</b> (meat and fish 0–3 °C); freezers <b>−12 °C or colder</b>, aim −18 °C. A display with a decimal? Pick the warmer number. Too warm? Keep the door closed and re-check in 15 minutes.</div>`;
+  if (roundAlarm){
+    html += `<div class="asset-row" style="display:block; border-color:var(--red); background:var(--red-tint);">
+      <div style="font-weight:800; color:var(--red);">Alarm: move the stock now</div>
+      <div style="font-size:13px; margin-top:4px;">${escHtml(roundAlarm.unit)} is still ${escHtml(roundAlarm.label)} on re-check. Move the stock to ${escHtml(roundAlarm.move_to || 'a spare unit')} and tag it DO NOT USE until the Chef decides.</div>
+      <div style="font-size:12px; color:var(--muted); margin-top:6px;">Already sent by the app: a critical report to Engineering and a task for your team. The Chef decides on the food in Temperature deviations.</div>
+      <div style="display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;">
+        <button class="btn primary" style="width:auto; padding:8px 12px;" onclick="roundDmCalled()">${roundAlarm.dm ? '✅ Duty Manager called' : 'Duty Manager called'}</button>
+        <button class="btn ghost" style="width:auto; padding:8px 12px;" onclick="openDeviations()">Open the deviation</button></div></div>`;
+  }
+  areas.forEach(area => {
+    const list = units.filter(u => u.area === area);
+    const liveA = list.filter(u => u.in_service && u.in_round);
+    html += `<div style="font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; color:var(--muted); margin:14px 0 4px;">${escHtml(area)}${liveA.length ? ` · ${liveA.filter(u => u.last).length} of ${liveA.length}` : ''}</div>`;
+    list.forEach(u => {
+      if (!u.in_service){
+        html += `<div class="asset-row" style="display:block; opacity:.55;"><div style="font-weight:600;">${escHtml(u.name)}</div><div style="font-size:11px; color:var(--muted);">${escHtml(u.note || 'Not in service yet')}</div></div>`;
+        return;
+      }
+      const l = u.last;
+      let status = '';
+      if (l && l.recheck_at) status = `<span style="color:var(--red); font-weight:700;">${escHtml(l.label)} at ${l.at} · re-check at ${l.recheck_at}</span>`;
+      else if (l) status = `<span style="color:${l.out ? 'var(--red)' : 'var(--green)'}; font-weight:700;">${escHtml(l.label)} at ${l.at} ${l.out ? '⚠' : '✓'}</span>`;
+      const opts = `<option value="">Pick…</option>` + tempOptions(u.kind).map(v => `<option value="${v}"${roundPick && roundPick.code === u.code && roundPick.value === v ? ' selected' : ''}>${tempLabel(v, u.kind)}</option>`).join('');
+      html += `<div class="asset-row" style="display:block;${u.open_deviation ? ' border-color:var(--red);' : ''}">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <div style="flex:1;"><div style="font-weight:600;">${escHtml(u.name)}${u.meat_fish ? ' <span style="font-size:11px; color:var(--muted);">(meat and fish 0–3 °C)</span>' : ''}</div>
+            <div style="font-size:12px; margin-top:2px;">${status || '<span style="color:var(--muted);">Not recorded this round</span>'}${u.open_deviation ? ' <span style="color:var(--red); font-size:11px;">· deviation open</span>' : ''}</div></div>
+          <select style="${selStyle}" onchange="pickRound('${u.code}', this.value)">${opts}</select></div>
+        ${roundPick && roundPick.code === u.code ? roundConfirmHtml(u) : ''}
+      </div>`;
+    });
+  });
+  body.innerHTML = html;
+}
+function roundConfirmHtml(u){
+  const v = roundPick.value;
+  const out = tempOutOfLimit(v, u.kind);
+  const warn = out ? (u.in_round
+      ? `<div style="font-size:12px; color:var(--red); margin-top:6px;">${u.kind === 'chiller' ? 'Above +6 °C' : 'Above −12 °C'}: keep the door closed and re-check in 15 minutes. Still too warm then: Engineering and your team are alerted.</div>`
+      : `<div style="font-size:12px; color:var(--red); margin-top:6px;">${u.kind === 'hot' ? 'Below 60 °C' : 'Above +6 °C'}: recorded as a deviation for the Chef to decide.</div>`) : '';
+  return `<div style="margin-top:10px; padding:10px; border-radius:10px; background:var(--paper);">
+      <div style="font-size:13px; font-weight:700;">Is this the right number?</div>
+      <div style="font-size:12px; color:var(--muted);">${escHtml(u.area)} · ${escHtml(u.name)}</div>
+      <div style="font-size:26px; font-weight:800; margin:4px 0;">${tempLabel(v, u.kind)}</div>
+      <div style="font-size:12px; color:var(--muted);">Check it against the thermometer before you confirm.</div>${warn}
+      <div class="row-btns"><button class="btn ghost" onclick="cancelRoundPick()">Edit</button>
+        <button class="btn primary" style="flex:1;" id="roundConfirmBtn" onclick="confirmRoundPick()">Confirm</button></div></div>`;
+}
+function pickRound(code, val){
+  roundPick = val === '' ? null : { code, value: Number(val) };
+  renderRound();
+}
+function cancelRoundPick(){ roundPick = null; renderRound(); }
+async function confirmRoundPick(){
+  if (!roundPick) return;
+  const btn = document.getElementById('roundConfirmBtn');
+  if (btn) btn.disabled = true;
+  const u = (roundData.units || []).find(x => x.code === roundPick.code);
+  const { data, error } = await supabase.rpc('record_temperature', { p_unit_code: roundPick.code, p_value: roundPick.value });
+  if (error){
+    console.error(error);
+    toast(error.message || "Couldn't save the reading");
+    if (btn) btn.disabled = false;
+    return;
+  }
+  roundPick = null;
+  if (data.status === 'ok') toast(`Saved ${data.label}`);
+  else if (data.status === 'ok_after_recheck') toast(`Re-check ${data.label}: back within the limit`);
+  else if (data.status === 'recheck') toast(`Too warm: re-check at ${data.recheck_at}. Keep the door closed.`);
+  else if (data.status === 'deviation') toast('Outside the limit: recorded for the Chef');
+  else if (data.status === 'alarm'){
+    roundAlarm = { unit: `${u.area} · ${u.name}`, label: data.label, move_to: data.move_to, deviation_id: data.deviation_id, dm: false };
+    toast('Alarm sent: move the stock now');
+    loadCases();
+  }
+  await reloadRound();
+}
+async function roundDmCalled(){
+  if (!roundAlarm || roundAlarm.dm) return;
+  const { error } = await supabase.rpc('update_deviation', { p_deviation_id: roundAlarm.deviation_id, p_moved_to: null, p_dm_told: true, p_food_items: null });
+  if (error){ toast(error.message || "Couldn't save"); return; }
+  roundAlarm.dm = true;
+  renderRound();
+}
+
+/* Deviations: where the stock went, Duty Manager called, the food; then the Chef decides. */
+let devRows = [], devUnits = [], devReadings = [], devCases = {};
+async function openDeviations(){
+  document.getElementById('tempRoundOverlay').classList.remove('open');
+  document.getElementById('deviationOverlay').classList.add('open');
+  const body = document.getElementById('deviationBody');
+  body.innerHTML = '<p style="color:var(--muted); font-size:13px;">Loading…</p>';
+  const [d, u] = await Promise.all([
+    supabase.from('temperature_deviations').select('*').eq('status', 'open').order('created_at', { ascending: false }),
+    supabase.from('cold_units').select('code,area,name,kind,in_service,is_spare,department_code')
+  ]);
+  if (d.error){ body.innerHTML = '<p style="color:var(--red); font-size:13px;">Could not load the deviations.</p>'; return; }
+  devRows = d.data || []; devUnits = u.data || [];
+  const ids = devRows.map(x => x.id);
+  const caseIds = devRows.map(x => x.eng_case_id).filter(Boolean);
+  const [r, c] = await Promise.all([
+    ids.length ? supabase.from('temperature_readings').select('deviation_id,label,reading_kind,recorded_at').in('deviation_id', ids).order('recorded_at') : Promise.resolve({ data: [] }),
+    caseIds.length ? supabase.from('cases').select('id,status').in('id', caseIds) : Promise.resolve({ data: [] })
+  ]);
+  devReadings = r.data || [];
+  devCases = {}; (c.data || []).forEach(x => { devCases[x.id] = x.status; });
+  renderDeviations();
+}
+function closeDeviationOnBg(e){ if (e.target.id === 'deviationOverlay'){ document.getElementById('deviationOverlay').classList.remove('open'); loadKitchenPanel(); } }
+const DECISIONS = { keep: 'Keep: back into a working unit', use_now: 'Use now', discard: 'Discard', other: 'Other (describe)' };
+function renderDeviations(){
+  const body = document.getElementById('deviationBody');
+  if (!devRows.length){ body.innerHTML = '<p style="color:var(--muted); font-size:13px;">No open temperature deviation.</p>'; return; }
+  const inp = 'width:100%; margin-top:6px; padding:10px; border:1px solid var(--line); border-radius:10px; font-size:14px; background:var(--surface); color:var(--ink);';
+  body.innerHTML = `<p style="font-size:12px; color:var(--muted); margin:0 0 8px;">If in doubt, do not serve.</p>` + devRows.map((d, i) => {
+    const u = devUnits.find(x => x.code === d.unit_code) || { area: '', name: d.unit_code, kind: 'chiller', department_code: '' };
+    const reads = devReadings.filter(r => r.deviation_id === d.id).map(r => `${escHtml(r.label)} at ${new Date(r.recorded_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`).join(' → ');
+    const targets = devUnits.filter(x => x.kind === u.kind && x.in_service && x.code !== u.code && x.department_code === u.department_code)
+      .sort((a, b) => (b.is_spare - a.is_spare)).map(x => `${x.area} · ${x.name}`);
+    const engStatus = d.eng_case_id ? (devCases[d.eng_case_id] || '').replace('_', ' ') : null;
+    const kitchenCan = hasHotelView() || myDeptCode() === u.department_code || isChefLike();
+    return `<div class="asset-row" style="display:block; border-color:var(--red);">
+      <div style="font-weight:800;">${escHtml(u.area)} · ${escHtml(u.name)} <span style="font-size:11px; color:var(--red);">${d.kind === 'transport' ? 'RED-DAY TRANSPORT' : 'ALARM'}</span></div>
+      <div style="font-size:12px; color:var(--muted); margin-top:2px;">${reads}</div>
+      ${engStatus !== null ? `<div style="font-size:12px; margin-top:4px;">Engineering report: <b>${escHtml(engStatus || 'not visible')}</b></div>` : ''}
+      ${kitchenCan ? `
+        <div style="font-size:12px; font-weight:700; margin-top:10px;">Stock moved to</div>
+        ${d.moved_to ? `<div style="font-size:13px;">${escHtml(d.moved_to)}</div>` :
+          `<select id="devMove${i}" style="${inp}" onchange="document.getElementById('devMoveOther${i}').style.display = this.value === 'other' ? 'block' : 'none'">
+             <option value="">Choose…</option>${targets.map(t => `<option value="${escHtml(t)}">${escHtml(t)}</option>`).join('')}<option value="other">Somewhere else…</option></select>
+           <input id="devMoveOther${i}" type="text" maxlength="120" placeholder="Where?" style="${inp} display:none;" />`}
+        <label style="display:flex; gap:8px; align-items:center; font-size:13px; margin-top:10px;"><input type="checkbox" id="devDm${i}" style="width:auto;" ${d.dm_told_at ? 'checked disabled' : ''} /> Duty Manager called</label>
+        <div style="font-size:12px; font-weight:700; margin-top:10px;">Food in the unit</div>
+        <input id="devFood${i}" type="text" maxlength="300" value="${escHtml(d.food_items || '')}" placeholder="e.g. cream 2 L, cooked rice 3 kg" style="${inp}" />
+        <button class="btn ghost" style="width:auto; padding:8px 14px; margin-top:8px;" onclick="saveDeviation(${i})">Save</button>` : ''}
+      <div style="font-size:12px; font-weight:700; margin-top:12px;">Decision for the food (Executive Chef or food-safety lead)</div>
+      ${d.decided_at ? `<div style="font-size:13px;">${escHtml(DECISIONS[d.decision] || d.decision)}${d.decision_note ? ': ' + escHtml(d.decision_note) : ''}</div>` :
+        (isChefLike() ? `<select id="devDec${i}" style="${inp}"><option value="">Choose…</option>${Object.keys(DECISIONS).map(k => `<option value="${k}">${DECISIONS[k]}</option>`).join('')}</select>
+           <input id="devNote${i}" type="text" maxlength="300" placeholder="Note (needed for Other)" style="${inp}" />
+           <button class="btn primary" style="width:auto; padding:8px 14px; margin-top:8px;" onclick="decideDeviation(${i})">Record decision</button>`
+          : '<div style="font-size:13px; color:var(--muted);">Waiting for the Chef.</div>')}
+      ${d.kind === 'cold_alarm' && d.unit_back_in_use_at ? '<div style="font-size:12px; margin-top:10px; color:var(--green); font-weight:700;">Unit back in use</div>' : ''}
+      ${d.kind === 'cold_alarm' && !d.unit_back_in_use_at && isChefLike() ? `<div style="margin-top:10px;"><button class="btn ghost" style="width:auto; padding:8px 14px;" onclick="unitBackInUse(${i})">Unit back in use</button>
+         <div style="font-size:11px; color:var(--muted); margin-top:4px;">After Engineering has verified the unit holds temperature again.</div></div>` : ''}
+    </div>`;
+  }).join('');
+}
+async function saveDeviation(i){
+  const d = devRows[i];
+  const sel = document.getElementById('devMove' + i);
+  let moved = sel ? sel.value : null;
+  if (moved === 'other') moved = (document.getElementById('devMoveOther' + i).value || '').trim();
+  const dm = document.getElementById('devDm' + i).checked && !d.dm_told_at;
+  const food = (document.getElementById('devFood' + i).value || '').trim();
+  const { error } = await supabase.rpc('update_deviation', { p_deviation_id: d.id, p_moved_to: moved || null, p_dm_told: dm, p_food_items: food || null });
+  if (error){ console.error(error); toast(error.message || "Couldn't save"); return; }
+  toast('Saved');
+  await openDeviations();
+}
+async function decideDeviation(i){
+  const d = devRows[i];
+  const dec = document.getElementById('devDec' + i).value;
+  const note = (document.getElementById('devNote' + i).value || '').trim();
+  if (!dec){ toast('Choose the decision first'); return; }
+  if (!window.confirm(`Record the decision "${DECISIONS[dec]}" for this food?`)) return;
+  const { error } = await supabase.rpc('decide_deviation', { p_deviation_id: d.id, p_decision: dec, p_note: note || null, p_unit_back: false });
+  if (error){ console.error(error); toast(error.message || "Couldn't save"); return; }
+  toast('Decision recorded');
+  await openDeviations();
+}
+async function unitBackInUse(i){
+  const d = devRows[i];
+  if (d.eng_case_id && devCases[d.eng_case_id] !== 'completed' && !window.confirm('Engineering has not verified the unit yet. Mark it back in use anyway?')) return;
+  const { error } = await supabase.rpc('decide_deviation', { p_deviation_id: d.id, p_decision: null, p_note: null, p_unit_back: true });
+  if (error){ console.error(error); toast(error.message || "Couldn't save"); return; }
+  toast('Unit back in use');
+  await openDeviations();
+}
+
+/* Vegetables and menu (Kitchen #5, #9). */
+let vegStatus = null, vegRules = [];
+async function openVeg(){
+  document.getElementById('vegOverlay').classList.add('open');
+  const body = document.getElementById('vegBody');
+  body.innerHTML = '<p style="color:var(--muted); font-size:13px;">Loading…</p>';
+  const [s, r] = await Promise.all([supabase.rpc('get_veg_status'), supabase.from('menu_pause_rules').select('outlet,item_name,pause_at,substitute').order('item_name')]);
+  if (s.error){ body.innerHTML = '<p style="color:var(--red); font-size:13px;">Could not load.</p>'; return; }
+  vegStatus = s.data; vegRules = r.data || [];
+  renderVeg();
+}
+function closeVegOnBg(e){ if (e.target.id === 'vegOverlay'){ document.getElementById('vegOverlay').classList.remove('open'); loadKitchenPanel(); } }
+function renderVeg(){
+  const body = document.getElementById('vegBody');
+  const lv = vegStatus.level;
+  const paused = vegStatus.paused || [];
+  let html = `<p style="font-size:12px; color:var(--muted); margin:0 0 8px;">The Executive Chef and the Inventory Manager set the level. Everyone can see it.</p>` +
+    Object.keys(VEG_LEVELS).map(k => `<div class="asset-row" style="display:block;${k === lv ? ' border-color:var(--blue); background:var(--paper);' : ''}">
+       <div style="font-weight:800;">${k} · ${VEG_LEVELS[k].name}${k === lv ? ' <span style="font-size:11px; color:var(--blue);">NOW</span>' : ''}</div>
+       <div style="font-size:12px; color:var(--muted);">${VEG_LEVELS[k].text}</div></div>`).join('');
+  if (vegStatus.set_at) html += `<div style="font-size:11px; color:var(--muted); margin-top:6px;">Set ${escHtml(vegStatus.set_at)}${vegStatus.set_by ? ' by ' + escHtml(vegStatus.set_by) : ''}${vegStatus.note ? ' · ' + escHtml(vegStatus.note) : ''}</div>`;
+  if (vegStatus.needs_gm_approval) html += `<div style="font-size:12px; color:var(--red); margin-top:6px; font-weight:700;">V3 waits for the GM's approval (within 24 hours).</div>
+      ${isGM() ? '<button class="btn primary" style="width:auto; padding:8px 14px; margin-top:6px;" onclick="approveVeg()">Approve V3</button>' : ''}`;
+  if (canSetVeg()){
+    html += `<div style="font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; color:var(--muted); margin:14px 0 4px;">Change the level</div>
+      <select id="vegNew" style="width:100%; padding:11px; border:1px solid var(--line); border-radius:10px; font-size:15px; background:var(--surface); color:var(--ink);">
+        <option value="">Choose…</option>${Object.keys(VEG_LEVELS).filter(k => k !== lv).map(k => `<option value="${k}">${k} · ${VEG_LEVELS[k].name}</option>`).join('')}</select>
+      <input type="text" id="vegNote" maxlength="200" placeholder="Reason (e.g. two short deliveries)" style="width:100%; margin-top:8px; padding:11px; border:1px solid var(--line); border-radius:10px; font-size:14px; background:var(--surface); color:var(--ink);" />
+      <button class="btn primary" style="width:100%; margin-top:8px;" onclick="changeVeg()">Change level</button>`;
+  }
+  const preview = paused.length ? paused : vegRules.filter(r => r.pause_at <= 'V2').map(r => ({ outlet: r.outlet, item: r.item_name, substitute: r.substitute }));
+  html += `<div style="font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; color:var(--muted); margin:14px 0 4px;">${paused.length ? `${paused.length} dish${paused.length === 1 ? '' : 'es'} paused: guests cannot order ${paused.length === 1 ? 'it' : 'them'}` : `At V2, ${preview.length} dish${preview.length === 1 ? '' : 'es'} stop${preview.length === 1 ? 's' : ''} showing to guests`}</div>` +
+    preview.map(p => `<div class="asset-row" style="display:block;"><div style="font-weight:600;">${escHtml(p.item)}</div><div style="font-size:11px; color:var(--muted);">${escHtml(p.outlet)}${p.substitute ? ' · ' + escHtml(p.substitute) : ''}</div></div>`).join('') +
+    `<div style="font-size:11px; color:var(--muted); margin-top:6px;">They come back automatically at V1 or V0. Ingredients come from dish names until the Chef confirms them on the Menu Pause List.</div>`;
+  body.innerHTML = html;
+}
+async function changeVeg(){
+  const lv = document.getElementById('vegNew').value;
+  if (!lv){ toast('Choose the new level'); return; }
+  const n = vegRules.filter(r => r.pause_at <= lv).length;
+  const msg = `Change to ${lv} (${VEG_LEVELS[lv].name})?` + (lv >= 'V2' ? ` ${n} dish${n === 1 ? '' : 'es'} stop${n === 1 ? 's' : ''} showing to guests.` : ' Paused dishes show again.') + (lv === 'V3' && !isGM() ? ' The GM approves V3 within 24 hours.' : '');
+  if (!window.confirm(msg)) return;
+  const { data, error } = await supabase.rpc('set_veg_level', { p_level: lv, p_note: (document.getElementById('vegNote').value || '').trim() || null });
+  if (error){ console.error(error); toast(error.message || "Couldn't change the level"); return; }
+  toast(data && data.needs_gm_approval ? 'V3 set: waiting for the GM' : `Level ${lv} set`);
+  await openVeg();
+}
+async function approveVeg(){
+  const { error } = await supabase.rpc('approve_veg_level');
+  if (error){ console.error(error); toast(error.message || "Couldn't approve"); return; }
+  toast('V3 approved');
+  await openVeg();
+}
+
+/* Kitchen roles: Admins and the GM assign them (Executive Chef, Inventory Manager, food-safety lead). */
+const ROLE_TAGS = { executive_chef: 'Executive Chef', inventory_manager: 'Inventory Manager', food_safety_lead: 'Food-safety lead' };
+let roleMembers = [], roleTagRows = [];
+function chooseKitchenRoles(){
+  document.getElementById('chooserOverlay').classList.remove('open');
+  openKitchenRoles();
+}
+async function openKitchenRoles(){
+  document.getElementById('kitchenRolesOverlay').classList.add('open');
+  const body = document.getElementById('kitchenRolesBody');
+  body.innerHTML = '<p style="color:var(--muted); font-size:13px;">Loading…</p>';
+  const [dp, m, t] = await Promise.all([
+    supabase.from('departments').select('id,code').in('code', ['KITCHEN', 'CAFE', 'FB', 'PURCHASING']),
+    supabase.from('team_members').select('id,first_name,last_name,department_id').eq('active', true).order('first_name'),
+    supabase.from('member_role_tags').select('member_id,tag,active').eq('active', true)
+  ]);
+  const ids = (dp.data || []).map(d => d.id);
+  roleTagRows = t.data || [];
+  const tagged = new Set(roleTagRows.map(x => x.member_id));
+  roleMembers = (m.data || []).filter(x => ids.includes(x.department_id) || tagged.has(x.id));
+  renderKitchenRoles();
+}
+function closeKitchenRolesOnBg(e){ if (e.target.id === 'kitchenRolesOverlay') document.getElementById('kitchenRolesOverlay').classList.remove('open'); }
+function renderKitchenRoles(){
+  const body = document.getElementById('kitchenRolesBody');
+  body.innerHTML = `<p style="font-size:12px; color:var(--muted); margin:0 0 8px;">Kitchen, Coppa, F&amp;B and Purchasing staff. Tap a role to give it or take it away.</p>` +
+    roleMembers.map((p, i) => {
+      const dept = (allDepartments.find(d => d.id === p.department_id) || {}).name || '';
+      return `<div class="asset-row" style="display:block;"><div style="font-weight:700;">${escHtml(p.first_name)} ${escHtml(p.last_name || '')} <span style="font-size:11px; color:var(--muted); font-weight:500;">${escHtml(dept)}</span></div>
+        <div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:6px;">${Object.keys(ROLE_TAGS).map(t => {
+          const on = roleTagRows.some(x => x.member_id === p.id && x.tag === t);
+          return `<button class="btn ${on ? 'primary' : 'ghost'}" style="width:auto; padding:6px 10px; font-size:12px;" onclick="toggleRoleTag(${i}, '${t}', ${!on})">${on ? '✓ ' : ''}${ROLE_TAGS[t]}</button>`;
+        }).join('')}</div></div>`;
+    }).join('');
+}
+async function toggleRoleTag(i, tag, on){
+  const p = roleMembers[i];
+  const { error } = await supabase.rpc('set_member_tag', { p_member_id: p.id, p_tag: tag, p_on: on });
+  if (error){ console.error(error); toast(error.message || "Couldn't change the role"); return; }
+  toast(`${ROLE_TAGS[tag]} ${on ? 'given to' : 'removed from'} ${p.first_name}`);
+  await openKitchenRoles();
+}
+
+/* Red-day service (J27): the Duty Manager with the GM; posted by an Admin or the GM. */
+function chooseRedDay(){
+  document.getElementById('chooserOverlay').classList.remove('open');
+  openRedDay();
+}
+async function openRedDay(){
+  document.getElementById('redDayOverlay').classList.add('open');
+  const { data } = await supabase.from('red_days').select('service_date,venue').order('service_date', { ascending: false }).limit(3);
+  const after17 = new Date().toLocaleTimeString('en-GB', { timeZone: 'Asia/Manila', hour12: false }) >= '17:00';
+  document.getElementById('redDayNote').textContent = after17
+    ? 'It is after 17:00: this starts the Red-day service for tomorrow, 11:00 to 17:00.'
+    : 'This starts the Red-day service for today, 11:00 to 17:00. At 17:00 Imo is back at its outlet.';
+  document.getElementById('redDayRecent').innerHTML = (data || []).length
+    ? 'Started: ' + data.map(r => `${escHtml(r.service_date)} (${escHtml(r.venue)})`).join(', ') : '';
+}
+function closeRedDayOnBg(e){ if (e.target.id === 'redDayOverlay') document.getElementById('redDayOverlay').classList.remove('open'); }
+async function startRedDay(venue){
+  if (!window.confirm(`Start the Red-day service with Imo at ${venue}?\n\nStaff and guests see the announcement until 17:00, and the kitchen gets the Red-day checklist.`)) return;
+  const { data, error } = await supabase.rpc('start_red_day', { p_venue: venue });
+  if (error){ console.error(error); toast(error.message || "Couldn't start the Red-day service"); return; }
+  document.getElementById('redDayOverlay').classList.remove('open');
+  toast('Red-day service started');
+  await Promise.all([loadAnnouncement(), loadCases()]);
+}
+
+/* El Niño readiness: verifications, Red-day venue readiness and the 6 approved units. Missing evidence never counts. */
+const READY_STATES = { unverified: 'Not verified', failed: 'Failed', completed_unverified: 'Done, not checked', verified_accepted: 'Verified', expired: 'Expired' };
+const READY_COLORS = { unverified: 'var(--muted)', failed: 'var(--red)', completed_unverified: '#b45309', verified_accepted: 'var(--green)', expired: 'var(--red)' };
+let readiness = null, readyOpen = null;
+function chooseReadiness(){
+  document.getElementById('chooserOverlay').classList.remove('open');
+  openReadiness();
+}
+async function openReadiness(){
+  document.getElementById('readinessOverlay').classList.add('open');
+  const { data, error } = await supabase.rpc('get_readiness');
+  if (error){ document.getElementById('readinessBody').innerHTML = '<p style="color:var(--red); font-size:13px;">Could not load.</p>'; return; }
+  readiness = data;
+  renderReadiness();
+}
+function closeReadinessOnBg(e){ if (e.target.id === 'readinessOverlay') document.getElementById('readinessOverlay').classList.remove('open'); }
+function renderReadiness(){
+  const items = readiness.items || [], units = readiness.units || [];
+  const count = s => items.filter(i => i.state === s).length;
+  const inp = 'width:100%; margin-top:6px; padding:10px; border:1px solid var(--line); border-radius:10px; font-size:14px; background:var(--surface); color:var(--ink);';
+  let html = `<div style="display:grid; grid-template-columns:repeat(5,1fr); gap:6px; margin:0 0 8px;">${['verified_accepted', 'completed_unverified', 'failed', 'unverified', 'expired'].map(s =>
+      `<div class="sumcard" style="padding:8px 4px;"><div class="n" style="color:${READY_COLORS[s]};">${count(s)}</div><div class="l">${READY_STATES[s]}</div></div>`).join('')}</div>`;
+  let grp = null;
+  items.forEach((it, i) => {
+    if (it.grp !== grp){ grp = it.grp; html += `<div style="font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; color:var(--muted); margin:14px 0 4px;">${escHtml(grp)}</div>`; }
+    html += `<div class="asset-row" style="display:block;" onclick="if(event.target.closest('.ready-edit'))return; toggleReady('i${i}')">
+      <div style="display:flex; gap:8px;"><div style="flex:1; font-weight:600; font-size:13px;">${escHtml(it.code)} · ${escHtml(it.title)}</div>
+        <div style="font-size:11px; font-weight:800; color:${READY_COLORS[it.state]}; white-space:nowrap;">${READY_STATES[it.state] || it.state}</div></div>
+      <div style="font-size:11px; color:var(--muted); margin-top:2px;">${escHtml(it.owner || '')}${it.deadline ? ' · due ' + escHtml(it.deadline) : ''}${it.verified_at ? ' · verified ' + escHtml(it.verified_at) + (it.verified_by ? ' by ' + escHtml(it.verified_by) : '') : ''}${it.valid_days ? ' · valid ' + it.valid_days + ' days' : ''}</div>
+      ${readyOpen === 'i' + i ? `<div class="ready-edit" style="margin-top:8px;">
+          <div style="font-size:12px; color:var(--muted);">Evidence needed: ${escHtml(it.evidence_required || '')}${it.evidence_ref ? '<br>On file: ' + escHtml(it.evidence_ref) : ''}</div>
+          <select id="rdyState" style="${inp}">${['unverified', 'completed_unverified', 'failed', 'verified_accepted'].map(s => `<option value="${s}"${s === it.state ? ' selected' : ''}>${READY_STATES[s]}</option>`).join('')}</select>
+          <input id="rdyRef" type="text" maxlength="200" placeholder="Evidence reference (report no., file, photo ref)" style="${inp}" />
+          <input id="rdyNote" type="text" maxlength="200" placeholder="Note (optional)" style="${inp}" />
+          <button class="btn primary" style="width:auto; padding:8px 14px; margin-top:8px;" onclick="saveReady('${it.code}')">Save</button></div>` : ''}
+    </div>`;
+  });
+  html += `<div style="font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; color:var(--muted); margin:14px 0 4px;">Approved units · ${units.length}</div>`;
+  const ustate = { ready: ['Ready', 'var(--green)'], blocked: ['Blocked', 'var(--red)'], in_progress: ['In progress', 'var(--muted)'] };
+  units.forEach((u, i) => {
+    const st = u.stages || [];
+    const doneN = st.filter(s => s.result && s.evidence_ref).length;
+    html += `<div class="asset-row" style="display:block;" onclick="if(event.target.closest('.ready-edit'))return; toggleReady('u${i}')">
+      <div style="display:flex; gap:8px;"><div style="flex:1; font-weight:600; font-size:13px;">${escHtml(u.code)} · ${escHtml(u.equipment)} · ${escHtml(u.department)}</div>
+        <div style="font-size:11px; font-weight:800; color:${ustate[u.state][1]};">${ustate[u.state][0]}</div></div>
+      <div style="font-size:11px; color:var(--muted);">${doneN} of ${st.length} stages with evidence · location ${escHtml(u.location || 'to confirm')}</div>
+      ${readyOpen === 'u' + i ? `<div class="ready-edit" style="margin-top:8px;">${st.map((s, k) => `
+          <div style="border-top:1px solid var(--line); padding-top:6px; margin-top:6px;">
+            <div style="font-size:13px; font-weight:600;">${escHtml(s.stage)} ${s.result ? `<span style="font-size:11px; color:${s.result === 'fail' ? 'var(--red)' : 'var(--green)'};">${escHtml(s.result.toUpperCase())} · ${escHtml(s.evidence_ref || '')}</span>` : ''}</div>
+            <div style="display:flex; gap:6px; margin-top:4px;">
+              <select id="stgRes${i}_${k}" style="width:90px; padding:8px; border:1px solid var(--line); border-radius:8px; font-size:13px; background:var(--surface); color:var(--ink);"><option value="done">Done</option><option value="pass">Pass</option><option value="fail">Fail</option></select>
+              <input id="stgRef${i}_${k}" type="text" maxlength="200" placeholder="Evidence reference" style="flex:1; padding:8px; border:1px solid var(--line); border-radius:8px; font-size:13px; background:var(--surface); color:var(--ink);" />
+              <button class="btn primary" style="width:auto; padding:6px 10px; font-size:12px;" onclick="saveStage('${u.code}', ${i}, ${k})">Save</button></div></div>`).join('')}</div>` : ''}
+    </div>`;
+  });
+  html += `<div style="font-size:11px; color:var(--muted); margin-top:8px;">Engineering does each item as a normal task in its own list. This board only shows the state; missing evidence never counts as ready.</div>`;
+  document.getElementById('readinessBody').innerHTML = html;
+}
+function toggleReady(key){ readyOpen = readyOpen === key ? null : key; renderReadiness(); }
+async function saveReady(code){
+  const state = document.getElementById('rdyState').value;
+  const ref = (document.getElementById('rdyRef').value || '').trim();
+  const note = (document.getElementById('rdyNote').value || '').trim();
+  const { error } = await supabase.rpc('set_readiness_state', { p_code: code, p_state: state, p_evidence_ref: ref || null, p_note: note || null });
+  if (error){ console.error(error); toast(error.message || "Couldn't save"); return; }
+  toast('Saved');
+  readyOpen = null;
+  await openReadiness();
+}
+async function saveStage(unit, i, k){
+  const s = readiness.units[i].stages[k];
+  const res = document.getElementById(`stgRes${i}_${k}`).value;
+  const ref = (document.getElementById(`stgRef${i}_${k}`).value || '').trim();
+  const { error } = await supabase.rpc('set_unit_stage', { p_unit: unit, p_stage: s.stage, p_result: res, p_evidence_ref: ref, p_done_on: null });
+  if (error){ console.error(error); toast(error.message || "Couldn't save"); return; }
+  toast('Stage saved');
+  await openReadiness();
+}
+
+/* ---------------- Scheduled tasks and automation switches (Batch 5) ---------------- */
+let automationTemplates = [], automationSettings = [];
+function chooseAutomation(){
+  document.getElementById('chooserOverlay').classList.remove('open');
+  openAutomation();
+}
+async function openAutomation(){
+  document.getElementById('automationOverlay').classList.add('open');
+  const body = document.getElementById('automationBody');
+  body.innerHTML = '<p style="color:var(--muted); font-size:13px;">Loading…</p>';
+  const [t, a] = await Promise.all([
+    supabase.from('recurring_templates').select('code,name,note,decision,frequency,enabled').order('code'),
+    supabase.from('automation_settings').select('key,enabled,decision,note').order('key')
+  ]);
+  if (t.error || a.error){ body.innerHTML = '<p style="color:var(--red); font-size:13px;">Could not load the list.</p>'; return; }
+  automationTemplates = t.data || []; automationSettings = a.data || [];
+  renderAutomation();
+}
+function closeAutomationOnBg(e){ if (e.target.id === 'automationOverlay') document.getElementById('automationOverlay').classList.remove('open'); }
+// Batch 7 (J10 answer, 21 Oct): any Admin or the GM switches the air-out; the scheduled tasks stay with the GM (D4).
+const AUTOMATION_NAMES = { room_airout: 'Room air-out after each check-out', recurring_tasks: 'Scheduled tasks created automatically' };
+function renderAutomation(){
+  const body = document.getElementById('automationBody');
+  const gm = isGM();
+  body.innerHTML =
+    `<p style="font-size:12px; color:var(--muted); margin:0 0 8px;">Until launch, scheduled tasks are created only when you tap "Create now" (D4). A second tap in the same day or shift creates nothing.</p>` +
+    automationTemplates.map(t => `<div class="asset-row" style="display:block;">
+        <div style="font-weight:700; font-size:14px;">${escHtml(t.name)}</div>
+        <div style="font-size:11px; color:var(--muted); margin-top:2px;">${escHtml(t.note || '')}${t.decision ? ' · ' + escHtml(t.decision) : ''}</div>
+        <button class="btn primary" style="width:auto; padding:8px 14px; margin-top:8px;" onclick="runAutomationNow('${t.code}')">Create now</button>
+      </div>`).join('') +
+    `<div style="font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; color:var(--muted); margin:16px 0 6px;">Automation switches</div>` +
+    automationSettings.map(a => `<div class="asset-row" style="display:block;">
+        <div style="font-weight:700; font-size:14px;">${escHtml(AUTOMATION_NAMES[a.key] || a.key)}: ${a.enabled ? '<span style="color:var(--green);">ON</span>' : '<span style="color:var(--red);">OFF</span>'}</div>
+        <div style="font-size:11px; color:var(--muted); margin-top:2px;">${escHtml(a.note || '')}${a.decision ? ' (' + escHtml(a.decision) + ')' : ''}</div>
+        ${(a.key === 'room_airout' ? hasHotelView() : gm) ? `<button class="btn ghost" style="width:auto; padding:8px 14px; margin-top:8px;" onclick="switchAutomation('${a.key}', ${!a.enabled})">${a.enabled ? 'Switch off' : 'Switch on'}</button>`
+             : '<div style="font-size:11px; color:var(--muted); margin-top:4px;">Only the GM can switch this.</div>'}
+      </div>`).join('');
+}
+async function runAutomationNow(code){
+  const { data, error } = await supabase.rpc('run_recurring_now', { p_template_code: code });
+  if (error){ console.error(error); toast(error.message || "Couldn't create the tasks"); return; }
+  toast(data ? `Created ${data} task${data === 1 ? '' : 's'}` : 'Nothing new: already created for this period');
+  await loadCases();
+}
+async function switchAutomation(key, on){
+  if (!window.confirm(`${on ? 'Switch ON' : 'Switch OFF'}: ${AUTOMATION_NAMES[key] || key}?`)) return;
+  const { error } = await supabase.rpc('set_automation', { p_key: key, p_enabled: on });
+  if (error){ console.error(error); toast(error.message || "Couldn't change the switch"); return; }
+  toast(on ? 'Switched on' : 'Switched off');
+  await openAutomation();
+}
+
+/* ---------------- Item lists (Batch 7): the GM's answer of 21 Oct, "any Admin edits them" ----------------
+   Rename, hide or show an item, or add one to a request type. Renaming clears the guest translations, so guests see the
+   new English name rather than an old translated one; items added here are for staff requests. */
+let itemListRows = [];
+function chooseItemLists(){
+  document.getElementById('chooserOverlay').classList.remove('open');
+  openItemLists();
+}
+async function openItemLists(){
+  document.getElementById('itemListsOverlay').classList.add('open');
+  const body = document.getElementById('itemListsBody');
+  body.innerHTML = '<p style="color:var(--muted); font-size:13px;">Loading…</p>';
+  const { data, error } = await supabase.from('intake_items').select('code,task_type_code,label,guest_category,active,sort_order').order('sort_order');
+  if (error){ body.innerHTML = '<p style="color:var(--red); font-size:13px;">Could not load the item lists.</p>'; return; }
+  itemListRows = data || [];
+  renderItemLists();
+}
+function closeItemListsOnBg(e){ if (e.target.id === 'itemListsOverlay') document.getElementById('itemListsOverlay').classList.remove('open'); }
+function itemTypeName(code){ const t = intakeTypes.find(x => x.code === code); return t ? (t.label || t.name) : code; }
+function renderItemLists(){
+  const inp = 'flex:1; min-width:0; padding:9px; border:1px solid var(--line); border-radius:10px; font-size:14px; background:var(--surface); color:var(--ink);';
+  const order = intakeTypes.map(t => t.code);
+  const codes = [...new Set(itemListRows.map(r => r.task_type_code))].sort((a, b) => {
+    const ia = order.indexOf(a), ib = order.indexOf(b);
+    return (ia < 0 ? 999 : ia) - (ib < 0 ? 999 : ib);
+  });
+  let html = `<p style="font-size:12px; color:var(--muted); margin:0 0 8px;">Change a name or the tick, then tap <b>Save changes</b> at the bottom. Staff pick 1 to 4 of each item. A hidden item no longer shows in new requests; past requests keep it. 🌐 = guests can pick it too: renaming it shows guests the new English name until it is translated again.</p>`;
+  codes.forEach(code => {
+    html += `<div style="font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; color:var(--muted); margin:14px 0 4px;">${escHtml(itemTypeName(code))}</div>`;
+    itemListRows.forEach((r, i) => {
+      if (r.task_type_code !== code) return;
+      html += `<div class="asset-row" id="ilRow_${i}" style="display:block;${r.active ? '' : ' opacity:.6;'}">
+        <div style="display:flex; gap:8px; align-items:center;">
+          <input id="il_${i}" type="text" maxlength="60" value="${escHtml(r.label)}" style="${inp}" oninput="itemDirty(${i})" />${r.guest_category ? '<span title="Guests can pick it">🌐</span>' : ''}
+        </div>
+        <div style="display:flex; gap:10px; align-items:center; margin-top:6px;">
+          <label style="display:flex; gap:6px; align-items:center; font-size:13px; flex:1;"><input type="checkbox" id="ila_${i}" style="width:auto;" ${r.active ? 'checked' : ''} onchange="itemDirty(${i})" /> Shown in requests</label>
+          <span id="ilMark_${i}" style="font-size:11px; font-weight:700; color:var(--blue); display:none;">Changed</span>
+        </div></div>`;
+    });
+  });
+  html += `<div style="position:sticky; bottom:0; background:var(--surface); padding:10px 0 4px; margin-top:8px;">
+      <button class="btn primary" id="ilSaveAll" style="width:100%;" disabled onclick="saveItemChanges()">Save changes</button>
+      <div id="ilSaveHint" style="font-size:11px; color:var(--muted); text-align:center; margin-top:4px;">No changes yet: edit a name or a tick.</div></div>
+    <div style="font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; color:var(--muted); margin:16px 0 4px;">Add an item</div>
+    <select id="ilNewType" style="width:100%; padding:10px; border:1px solid var(--line); border-radius:10px; font-size:14px; background:var(--surface); color:var(--ink);">
+      <option value="">Request type…</option>${intakeTypes.slice().sort((a, b) => (a.label || a.name).localeCompare(b.label || b.name)).map(t => `<option value="${t.code}">${escHtml(t.label || t.name)}</option>`).join('')}</select>
+    <div style="display:flex; gap:8px; margin-top:8px;"><input id="ilNewLabel" type="text" maxlength="60" placeholder="Item name, e.g. Beach towel" style="${inp}" />
+      <button class="btn primary" style="width:auto; padding:8px 14px;" onclick="addIntakeItem()">Add</button></div>`;
+  document.getElementById('itemListsBody').innerHTML = html;
+}
+function itemEdits(){
+  const out = [];
+  itemListRows.forEach((r, i) => {
+    const el = document.getElementById('il_' + i), ck = document.getElementById('ila_' + i);
+    if (!el || !ck) return;
+    const label = (el.value || '').trim().replace(/\s+/g, ' ');
+    if (label !== r.label || ck.checked !== r.active) out.push({ i, r, label, active: ck.checked });
+  });
+  return out;
+}
+function itemDirty(i){
+  const r = itemListRows[i];
+  const label = (document.getElementById('il_' + i).value || '').trim().replace(/\s+/g, ' ');
+  const changed = label !== r.label || document.getElementById('ila_' + i).checked !== r.active;
+  document.getElementById('ilMark_' + i).style.display = changed ? 'inline' : 'none';
+  document.getElementById('ilRow_' + i).style.borderColor = changed ? 'var(--blue)' : '';
+  const n = itemEdits().length;
+  const btn = document.getElementById('ilSaveAll');
+  btn.disabled = n === 0;
+  btn.textContent = n ? `Save changes (${n})` : 'Save changes';
+  document.getElementById('ilSaveHint').textContent = n ? 'Saved to the server for everyone at once.' : 'No changes yet: edit a name or a tick.';
+}
+async function saveItemChanges(){
+  const edits = itemEdits();
+  if (!edits.length) return;
+  if (edits.some(e => !e.label)){ toast('An item name is empty'); return; }
+  const renamedGuest = edits.filter(e => e.r.guest_category && e.label !== e.r.label);
+  if (renamedGuest.length && !window.confirm(`Rename ${renamedGuest.map(e => `"${e.r.label}"`).join(', ')}?\n\nGuests see the new English name until it is translated again.`)) return;
+  const btn = document.getElementById('ilSaveAll');
+  btn.disabled = true; btn.textContent = 'Saving…';
+  let ok = 0;
+  for (const e of edits){
+    const { error } = await supabase.rpc('save_intake_item', { p_code: e.r.code, p_task_type_code: null, p_label: e.label, p_active: e.active });
+    if (error){ console.error(error); toast(`${e.r.label}: ${error.message || "couldn't save"}`); break; }
+    ok++;
+  }
+  if (ok) toast(`${ok} change${ok === 1 ? '' : 's'} saved`);
+  await reloadIntakeCatalog();
+  await openItemLists();
+}
+async function saveIntakeItem(i){ itemDirty(i); await saveItemChanges(); }
+async function addIntakeItem(){
+  const type = document.getElementById('ilNewType').value;
+  const label = (document.getElementById('ilNewLabel').value || '').trim().replace(/\s+/g, ' ');
+  if (!type){ toast('Choose the request type'); return; }
+  if (!label){ toast('Write the item name'); return; }
+  const { error } = await supabase.rpc('save_intake_item', { p_code: null, p_task_type_code: type, p_label: label, p_active: true });
+  if (error){ console.error(error); toast(error.message || "Couldn't add the item"); return; }
+  toast(`Added to ${itemTypeName(type)}`);
+  await reloadIntakeCatalog();
+  await openItemLists();
+}
+
+/* ---------------- Task Types (Batch 8): Admins and the GM add or change request types ----------------
+   The GM's feedback of 21 Oct: "give me access to edit and save, so I can create missing parameters from the app".
+   A type has the short name staff see, the department that does it, other departments it also alerts (each gets its own
+   task), where it happens, how fast it escalates and the words that find it. */
+let ttTypes = [], ttIntake = {}, ttGroups = [], ttDepts = [], ttAliases = [], ttEdit = null, ttReturn = null;
+const TT_PLACES = { room: 'A room', place: 'A place (lobby, kitchen, outlet…)', room_or_place: 'A room or a place', none: 'No location' };
+function chooseTaskTypes(){
+  document.getElementById('chooserOverlay').classList.remove('open');
+  ttReturn = null;
+  openTaskTypes();
+}
+async function loadTaskTypeData(){
+  const [t, i, g, d, a] = await Promise.all([
+    supabase.from('task_types').select('code,name,default_department_code,escalation_group,selectable,type_group'),
+    supabase.from('task_type_intake').select('task_type_code,intake_label,place,alert_department_codes'),
+    supabase.from('escalation_groups').select('code,name,rule_text,sort_order').order('sort_order'),
+    supabase.from('departments').select('code,name').eq('active', true).order('name'),
+    supabase.from('task_type_aliases').select('pattern,task_type_code')
+  ]);
+  if (t.error || i.error) throw (t.error || i.error);
+  ttIntake = {}; (i.data || []).forEach(x => { ttIntake[x.task_type_code] = x; });
+  ttTypes = (t.data || []).filter(x => ttIntake[x.code] || /^N\d+$/.test(x.code));
+  ttGroups = g.data || []; ttDepts = (d.data || []).filter(x => x.code !== 'gm'); ttAliases = a.data || [];
+}
+async function openTaskTypes(){
+  document.getElementById('taskTypesOverlay').classList.add('open');
+  const body = document.getElementById('taskTypesBody');
+  body.innerHTML = '<p style="color:var(--muted); font-size:13px;">Loading…</p>';
+  try { await loadTaskTypeData(); } catch (e){ console.error(e); body.innerHTML = '<p style="color:var(--red); font-size:13px;">Could not load the task types.</p>'; return; }
+  ttEdit = null;
+  renderTaskTypeList();
+}
+function closeTaskTypesOnBg(e){ if (e.target.id === 'taskTypesOverlay') closeTaskTypes(); }
+function closeTaskTypes(){ document.getElementById('taskTypesOverlay').classList.remove('open'); if (ttReturn) { const r = ttReturn; ttReturn = null; openTypeReview(r); } }
+function ttDeptName(code){ return (ttDepts.find(d => d.code === code) || {}).name || code || '—'; }
+function renderTaskTypeList(){
+  const body = document.getElementById('taskTypesBody');
+  const groups = {};
+  ttTypes.forEach(t => { (groups[t.default_department_code || ''] = groups[t.default_department_code || ''] || []).push(t); });
+  const label = t => (ttIntake[t.code] && ttIntake[t.code].intake_label) || t.name;
+  let html = `<button class="btn primary" style="width:100%;" onclick="editTaskType(null)">＋ Add a task type</button>
+    <p style="font-size:12px; color:var(--muted); margin:8px 0;">Tap a type to change it. Items for a type are in <b>Item Lists</b>.</p>`;
+  Object.keys(groups).sort((a, b) => ttDeptName(a).localeCompare(ttDeptName(b))).forEach(code => {
+    html += `<div style="font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; color:var(--muted); margin:14px 0 4px;">${escHtml(ttDeptName(code))}</div>`;
+    groups[code].sort((a, b) => label(a).localeCompare(label(b))).forEach(t => {
+      const al = (ttIntake[t.code] || {}).alert_department_codes;
+      html += `<div class="asset-row" style="display:block;${t.selectable ? '' : ' opacity:.6;'}" onclick="editTaskType('${t.code}')">
+        <div style="font-weight:700; font-size:14px;">${escHtml(label(t))} <span style="font-size:11px; color:var(--muted); font-weight:500;">${t.code}${t.selectable ? '' : ' · hidden'}</span></div>
+        <div style="font-size:11px; color:var(--muted);">${escHtml(t.name)}${al && al.length ? ' · alerts ' + al.map(ttDeptName).map(escHtml).join(', ') : ''}</div></div>`;
+    });
+  });
+  body.innerHTML = html;
+}
+function editTaskType(code, prefill){
+  const t = code ? ttTypes.find(x => x.code === code) : null;
+  const i = code ? (ttIntake[code] || {}) : {};
+  ttEdit = { code, prefill: prefill || {} };
+  const inp = 'width:100%; margin-top:6px; padding:10px; border:1px solid var(--line); border-radius:10px; font-size:14px; background:var(--surface); color:var(--ink);';
+  const alerts = i.alert_department_codes || [];
+  const words = ttAliases.filter(a => a.task_type_code === code).map(a => a.pattern);
+  const pf = ttEdit.prefill;
+  document.getElementById('taskTypesBody').innerHTML = `
+    <div style="font-size:16px; font-weight:800; margin-bottom:4px;">${t ? 'Change ' + escHtml(i.intake_label || t.name) + ' <span style="font-size:12px; color:var(--muted);">' + t.code + '</span>' : 'New task type'}</div>
+    ${pf.from ? `<div style="font-size:12px; color:var(--muted);">For the record: “${escHtml(pf.from)}”</div>` : ''}
+    <div class="field"><label>Name staff see in the list</label><input id="ttLabel" type="text" maxlength="60" style="${inp}" value="${escHtml(i.intake_label || pf.label || '')}" placeholder="e.g. Hot Water" /></div>
+    <div class="field"><label>Full name (reports)</label><input id="ttName" type="text" maxlength="80" style="${inp}" value="${escHtml(t ? t.name : (pf.label || ''))}" placeholder="e.g. Hot water in cups or a flask" /></div>
+    <div class="field"><label>Department that does it</label><select id="ttDept" style="${inp}"><option value="">Choose…</option>${ttDepts.map(d => `<option value="${d.code}"${(t ? t.default_department_code : '') === d.code ? ' selected' : ''}>${escHtml(d.name)}</option>`).join('')}</select></div>
+    <div class="field"><label>Also alert (each department gets its own task)</label>
+      <div style="display:flex; flex-wrap:wrap; gap:6px 14px; margin-top:6px;">${ttDepts.map(d => `<label style="display:flex; gap:6px; align-items:center; font-size:13px; text-transform:none; letter-spacing:0; font-weight:500; color:var(--ink);"><input type="checkbox" class="ttAlert" value="${d.code}" style="width:auto;" ${alerts.includes(d.code) ? 'checked' : ''} /> ${escHtml(d.name)}</label>`).join('')}</div>
+      <div style="font-size:11px; color:var(--muted); margin-top:4px;">Tick two or more to send one task to each, like garbage hauling. Leave empty for the usual one department.</div></div>
+    <div class="field"><label>Where it happens</label><select id="ttPlace" style="${inp}">${Object.keys(TT_PLACES).map(k => `<option value="${k}"${(i.place || 'room_or_place') === k ? ' selected' : ''}>${TT_PLACES[k]}</option>`).join('')}</select></div>
+    <div class="field"><label>How fast it escalates</label><select id="ttGroup" style="${inp}"><option value="">Choose…</option>${ttGroups.map(g => `<option value="${g.code}"${(t ? t.escalation_group : '') === g.code ? ' selected' : ''}>${escHtml(g.rule_text || g.name)} (${escHtml(g.name)})</option>`).join('')}</select></div>
+    <div class="field"><label>Words that find it (comma between)</label><input id="ttWords" type="text" maxlength="200" style="${inp}" placeholder="e.g. hot water, thermos" />
+      ${words.length ? `<div style="font-size:11px; color:var(--muted); margin-top:4px;">Already: ${words.map(escHtml).join(', ')}</div>` : ''}</div>
+    <label style="display:flex; gap:8px; align-items:center; font-size:14px; margin-top:12px;"><input type="checkbox" id="ttShown" style="width:auto;" ${!t || t.selectable ? 'checked' : ''} /> Shown in requests</label>
+    <div class="row-btns"><button class="btn ghost" onclick="${ttReturn ? 'closeTaskTypes()' : 'renderTaskTypeList()'}">Cancel</button>
+      <button class="btn primary" style="flex:1;" id="ttSaveBtn" onclick="saveTaskTypeForm()">Save</button></div>`;
+}
+async function saveTaskTypeForm(){
+  const val = id => (document.getElementById(id).value || '').trim();
+  const label = val('ttLabel'), name = val('ttName') || label, dept = val('ttDept'), group = val('ttGroup'), place = val('ttPlace');
+  if (!label){ toast('Write the name staff see'); return; }
+  if (!dept){ toast('Choose the department that does it'); return; }
+  if (!group){ toast('Choose how fast it escalates'); return; }
+  const alerts = [...document.querySelectorAll('.ttAlert:checked')].map(x => x.value);
+  const words = val('ttWords').split(',').map(w => w.trim()).filter(Boolean);
+  const btn = document.getElementById('ttSaveBtn'); btn.disabled = true;
+  const { data, error } = await supabase.rpc('save_task_type', {
+    p_code: ttEdit.code, p_name: name, p_department_code: dept, p_escalation_group: group, p_intake_label: label, p_place: place,
+    p_alert_department_codes: alerts.length ? alerts : null, p_aliases: words.length ? words : null, p_selectable: document.getElementById('ttShown').checked });
+  btn.disabled = false;
+  if (error){ console.error(error); toast(error.message || "Couldn't save the task type"); return; }
+  const skipped = (data && data.aliases_skipped) || [];
+  toast(`Saved ${label} (${data.code})` + (skipped.length ? ` · already used elsewhere: ${skipped.join(', ')}` : ''));
+  await reloadIntakeCatalog();
+  if (ttReturn){
+    const r = ttReturn; ttReturn = null;
+    document.getElementById('taskTypesOverlay').classList.remove('open');
+    await openTypeReview({ ...r, code: data.code });
+    return;
+  }
+  await openTaskTypes();
+}
+
+/* ---------------- Task types to review (J33): Admins and the GM ----------------
+   Batch 8: a record that held two requests is split into two task types; a missing type is added on the spot. */
+let reviewRows = [];
+async function openTypeReview(back){
+  document.getElementById('typeReviewOverlay').classList.add('open');
+  const body = document.getElementById('typeReviewBody');
+  body.innerHTML = '<p style="color:var(--muted); font-size:13px;">Loading…</p>';
+  const { data, error } = await supabase.from('v_classification_review')
+    .select('case_id,created_at,detail_type,status,task_type_code,confidence,note').order('created_at', { ascending: false }).limit(200);
+  if (error){ body.innerHTML = '<p style="color:var(--red); font-size:13px;">Could not load the list.</p>'; return; }
+  reviewRows = data || [];
+  renderTypeReview(back && back.caseId ? back : null);
+}
+function closeTypeReviewOnBg(e){ if (e.target.id === 'typeReviewOverlay') document.getElementById('typeReviewOverlay').classList.remove('open'); }
+function reviewTypeOptions(){
+  return intakeTypes.slice().sort((a, b) => a.label.localeCompare(b.label))
+    .map(t => `<option value="${t.code}">${escHtml(t.label)}</option>`).join('') + '<option value="__new">＋ New task type…</option>';
+}
+function renderTypeReview(back){
+  const body = document.getElementById('typeReviewBody');
+  if (!reviewRows.length){ body.innerHTML = '<p style="color:var(--muted); font-size:13px;">Nothing to review.</p>'; return; }
+  const opts = reviewTypeOptions();
+  const sel = `${REQ_SELECT_STYLE} flex:1;`;
+  body.innerHTML = `<p style="font-size:12px; color:var(--muted); margin:0 0 10px;">Records without a clear task type (J33). Choose the type when it is clear; leave it when it is not. Two requests in one record (comforter and iron)? Tap “Two tasks” and choose both. A type is missing? Choose “＋ New task type…”.</p>` +
+    reviewRows.map((r, i) => `<div class="asset-row" style="display:block;">
+      <div style="font-weight:700; font-size:14px;">${escHtml(r.detail_type || '(no wording)')}</div>
+      <div style="font-size:11px; color:var(--muted);">${fmtTime(r.created_at)} · ${escHtml(r.status)} · now: ${escHtml(r.task_type_code)}${r.confidence ? ' (' + escHtml(r.confidence) + ')' : ''}</div>
+      <div style="display:flex; gap:8px; margin-top:6px;">
+        <select id="trSel${i}" style="${sel}" onchange="reviewPick(${i}, this)"><option value="">Choose a task type…</option>${opts}</select>
+        <button class="btn primary" style="width:auto; padding:8px 14px;" onclick="saveTypeReview(${i})">Save</button>
+      </div>
+      <div id="trTwo${i}" style="display:none; margin-top:6px;">
+        <div style="font-size:12px; color:var(--muted);">Second task in the same record:</div>
+        <select id="trSel2_${i}" style="${sel} width:100%; margin-top:4px;" onchange="reviewPick(${i}, this)"><option value="">Choose the second type…</option>${opts}</select>
+      </div>
+      <div style="text-align:right; margin-top:4px;"><a href="#" style="font-size:12px;" onclick="toggleTwoTasks(${i}); return false;" id="trTwoLink${i}">Two tasks in this record?</a></div>
+    </div>`).join('');
+  if (back){
+    const i = reviewRows.findIndex(r => r.case_id === back.caseId);
+    if (i >= 0){
+      if (back.second){ toggleTwoTasks(i); document.getElementById('trSel2_' + i).value = back.code || ''; if (back.first) document.getElementById('trSel' + i).value = back.first; }
+      else document.getElementById('trSel' + i).value = back.code || '';
+      document.getElementById('trSel' + i).scrollIntoView({ block: 'center' });
+    }
+  }
+}
+function toggleTwoTasks(i){
+  const box = document.getElementById('trTwo' + i);
+  const on = box.style.display === 'none';
+  box.style.display = on ? 'block' : 'none';
+  document.getElementById('trTwoLink' + i).textContent = on ? 'Only one task' : 'Two tasks in this record?';
+  if (!on) document.getElementById('trSel2_' + i).value = '';
+}
+async function reviewPick(i, el){
+  if (el.value !== '__new') return;
+  el.value = '';
+  const r = reviewRows[i];
+  ttReturn = { caseId: r.case_id, second: el.id.startsWith('trSel2_'), first: document.getElementById('trSel' + i).value || null };
+  document.getElementById('typeReviewOverlay').classList.remove('open');
+  document.getElementById('taskTypesOverlay').classList.add('open');
+  try { await loadTaskTypeData(); } catch (e){ console.error(e); toast('Could not load the task types'); return; }
+  editTaskType(null, { from: r.detail_type || '' });
+}
+async function saveTypeReview(i){
+  const r = reviewRows[i];
+  const code = document.getElementById('trSel' + i).value;
+  const two = document.getElementById('trTwo' + i).style.display !== 'none';
+  const code2 = two ? document.getElementById('trSel2_' + i).value : '';
+  if (!r || !code){ toast('Choose a task type first'); return; }
+  if (two && !code2){ toast('Choose the second task type, or tap “Only one task”'); return; }
+  if (two && code2 === code){ toast('Choose two different task types'); return; }
+  const { error } = two
+    ? await supabase.rpc('split_case_types', { p_case_id: r.case_id, p_first_type: code, p_second_type: code2, p_note: 'Reviewed in the app' })
+    : await supabase.rpc('reclassify_case', { p_case_id: r.case_id, p_task_type_code: code, p_note: 'Reviewed in the app' });
+  if (error){ console.error(error); toast(error.message || "Couldn't save"); return; }
+  reviewRows.splice(i, 1);
+  renderTypeReview();
+  toast(two ? 'Saved as two tasks' : 'Task type saved');
 }
 
 function openReport(){
@@ -3996,9 +5570,9 @@ async function uploadAttachment(file, statusEl){
     const fileName = `attach-${Date.now()}-${Math.random().toString(36).slice(2,8)}.${ext}`;
     const { error } = await supabase.storage.from('case-photos').upload(fileName, blob, { contentType: ctype });
     if (error) throw error;
-    const url = supabase.storage.from('case-photos').getPublicUrl(fileName).data.publicUrl;
+    // Batch 1 (S1): store the file's path; a signed link is made when it is shown.
     statusEl.textContent = `Attached ✓ (${file.name})`;
-    return url;
+    return fileName;
   } catch (err){
     console.error(err);
     statusEl.textContent = "Couldn't upload — you can still submit without it";
@@ -4170,7 +5744,7 @@ async function handlePhotoSelected(e){
       const { error: vErr } = await supabase.storage.from('case-photos').upload(vName, out.blob, { contentType: out.ctype });
       if (vErr) throw vErr;
       reportState.photo = true;
-      reportState.photoUrl = supabase.storage.from('case-photos').getPublicUrl(vName).data.publicUrl;
+      reportState.photoUrl = vName; // Batch 1 (S1): file path, not a public link
       statusEl.textContent = `Video attached ✓ (${Math.round(out.blob.size/1024)} KB)`;
       return;
     }
@@ -4184,9 +5758,8 @@ async function handlePhotoSelected(e){
     const { error: uploadError } = await supabase.storage.from('case-photos').upload(fileName, compressed, { contentType: 'image/jpeg' });
     if (uploadError) throw uploadError;
 
-    const { data: urlData } = supabase.storage.from('case-photos').getPublicUrl(fileName);
     reportState.photo = true;
-    reportState.photoUrl = urlData.publicUrl;
+    reportState.photoUrl = fileName; // Batch 1 (S1): file path, not a public link
     const sizeKb = Math.round(compressed.size / 1000);
     statusEl.textContent = `Photo attached ✓ (${sizeKb} KB)`;
   } catch (err) {
@@ -4270,23 +5843,24 @@ async function confirmVerify(method){
   await proceedAfterMethod(method, null);
 }
 
+/* Batch 5: the checklist comes from the case's task type (get_case_checklist), not from its wording.
+   Items: tick, a number picked from a list and confirmed (J35), or free text where no standard exists (J36).
+   NCI and check-out checklists are required: "Guest confirmed" does not skip them (J11). */
+let pendingChecklistDef = null;
 async function proceedAfterMethod(method, photoUrl){
   const c = cases.find(x => x.id === pendingVerifyCardId);
-  // "Guest confirmed" skips the inspection checklist — guest satisfaction
-  // supersedes the internal SOP tick-list.
-  if (method !== 'Guest confirmed' && c){
-    const { data } = await supabase
-      .from('verification_checklists')
-      .select('item')
-      .eq('detail_type', c.detail_type)
-      .eq('active', true)
-      .order('sort_order');
-    if (data && data.length){
+  if (c){
+    const { data: def, error } = await supabase.rpc('get_case_checklist', { p_case_id: c.id });
+    if (error) console.error(error);
+    if (def && def.items && def.items.length && !(method === 'Guest confirmed' && def.guest_confirm_skips)){
       pendingMethod = method;
       pendingPhotoUrl = photoUrl;
-      pendingChecklist = data.map(d => ({ label: d.item, done: false }));
+      pendingChecklistDef = def;
+      pendingChecklist = def.items.map(it => ({ ...it, done: false, value: '', picked: null, confirmed: false }));
       document.getElementById('verifyChecklistSub').textContent =
-        `${c.detail_type.toUpperCase()} · TICK EVERY ITEM TO COMPLETE`;
+        `${String(def.name).toUpperCase()} · ${def.required ? 'REQUIRED · ' : ''}COMPLETE EVERY ITEM`;
+      document.getElementById('verifyChecklistNote').textContent =
+        def.guests ? `Guests: ${def.guests}` : (def.required && method === 'Guest confirmed' ? 'This checklist is required, also when the guest confirmed.' : '');
       renderChecklistItems();
       document.getElementById('verifyMethodStep').style.display='none';
       document.getElementById('verifyChecklistStep').style.display='block';
@@ -4296,21 +5870,83 @@ async function proceedAfterMethod(method, photoUrl){
   await finishVerify(method, photoUrl, null);
 }
 
+function checklistItemOk(it){
+  if (it.input_kind === 'tick') return it.done || !it.required;
+  if (it.input_kind === 'count') return it.confirmed || (!it.required && it.picked === null);
+  return !it.required || !!(it.value || '').trim();
+}
+function updateChecklistDoneBtn(){
+  document.getElementById('checklistDoneBtn').disabled = !pendingChecklist.every(checklistItemOk);
+}
 function renderChecklistItems(){
-  document.getElementById('verifyChecklistList').innerHTML = pendingChecklist.map((it, i) =>
-    `<div class="asset-row" onclick="toggleCheckItem(${i})" style="${it.done ? 'border-color:var(--green); background:#eefaf4;' : ''}">
-       <span class="n">${it.done ? '✅' : '⬜'} ${it.label}</span>
-     </div>`
-  ).join('');
-  document.getElementById('checklistDoneBtn').disabled = !pendingChecklist.every(x => x.done);
+  const okStyle = 'border-color:var(--green); background:#eefaf4;';
+  document.getElementById('verifyChecklistList').innerHTML = pendingChecklist.map((it, i) => {
+    if (it.input_kind === 'count'){
+      let opts = `<option value=""${it.picked === null ? ' selected' : ''}>–</option>`;
+      for (let n = 0; n <= (it.count_max || 24); n++) opts += `<option value="${n}"${it.picked === n ? ' selected' : ''}>${n}</option>`;
+      const exp = (it.expected !== null && it.expected !== undefined) ? `<div style="font-size:12px; color:var(--muted); margin-top:4px;">Expected: ${it.expected}</div>` : '';
+      const diff = (it.picked !== null && it.expected !== null && it.expected !== undefined && it.picked !== Number(it.expected))
+        ? `<div style="font-size:12px; color:var(--red); margin-top:4px;">Differs from the expected ${it.expected}. Confirm only if this is what you placed.</div>` : '';
+      const confirmRow = (it.picked !== null && !it.confirmed)
+        ? `<div style="display:flex; gap:8px; margin-top:8px; align-items:center;"><span style="font-weight:800; font-size:18px; flex:1;">${it.picked} — correct?</span>
+             <button class="btn ghost" style="width:auto; padding:8px 12px;" onclick="changeChecklistPick(${i})">Edit</button>
+             <button class="btn primary" style="width:auto; padding:8px 12px;" onclick="confirmChecklistPick(${i})">Confirm</button></div>`
+        : (it.confirmed ? `<div style="margin-top:6px; font-weight:700;">✅ ${it.picked} confirmed <a href="#" style="font-size:12px; font-weight:500;" onclick="changeChecklistPick(${i}); return false;">change</a></div>` : '');
+      return `<div class="asset-row" style="display:block; ${it.confirmed ? okStyle : ''}">
+          <div class="n" style="font-weight:600;">${escHtml(it.label)}</div>${exp}
+          ${it.confirmed ? '' : `<select style="margin-top:8px; width:110px; padding:10px; border:1px solid var(--line); border-radius:10px; font-size:15px; background:var(--surface); color:var(--ink);" onchange="setChecklistPick(${i}, this.value)">${opts}</select>`}
+          ${diff}${confirmRow}
+        </div>`;
+    }
+    if (it.input_kind === 'free_text'){
+      return `<div class="asset-row" style="display:block;">
+          <div class="n" style="font-weight:600;">${escHtml(it.label)}${it.required ? '' : ' <span style="color:var(--muted); font-weight:500;">(optional)</span>'}</div>
+          ${it.standard_note ? `<div style="font-size:11px; color:var(--muted); margin-top:2px;">${escHtml(it.standard_note)}</div>` : ''}
+          <input type="text" maxlength="500" value="${escHtml(it.value || '')}" oninput="setChecklistText(${i}, this.value)"
+            style="width:100%; margin-top:8px; padding:10px; border:1px solid var(--line); border-radius:10px; font-size:14px; background:var(--surface); color:var(--ink);" />
+        </div>`;
+    }
+    return `<div class="asset-row" onclick="toggleCheckItem(${i})" style="${it.done ? okStyle : ''}">
+       <span class="n">${it.done ? '✅' : '⬜'} ${escHtml(it.label)}</span>
+     </div>`;
+  }).join('');
+  updateChecklistDoneBtn();
 }
 function toggleCheckItem(i){
   pendingChecklist[i].done = !pendingChecklist[i].done;
   renderChecklistItems();
 }
+function setChecklistPick(i, v){
+  const it = pendingChecklist[i];
+  it.picked = v === '' ? null : Number(v);
+  it.confirmed = false;
+  renderChecklistItems();
+}
+function confirmChecklistPick(i){ pendingChecklist[i].confirmed = true; renderChecklistItems(); }
+function changeChecklistPick(i){ pendingChecklist[i].confirmed = false; renderChecklistItems(); }
+function setChecklistText(i, v){ pendingChecklist[i].value = v; updateChecklistDoneBtn(); }
+
 async function submitChecklist(){
-  if (!pendingChecklist.every(x => x.done)) return;
-  pendingChecklistItems = pendingChecklist.map(x => x.label);
+  if (!pendingChecklist.every(checklistItemOk)) return;
+  const btn = document.getElementById('checklistDoneBtn');
+  btn.disabled = true;
+  const results = pendingChecklist.map(it => it.input_kind === 'tick'
+    ? { item_id: it.id, done: !!it.done }
+    : { item_id: it.id, value: it.input_kind === 'count' ? (it.confirmed ? String(it.picked) : null) : ((it.value || '').trim() || null) });
+  const { data, error } = await supabase.rpc('submit_case_checklist', { p_case_id: pendingVerifyCardId, p_results: results });
+  btn.disabled = false;
+  if (error){
+    console.error(error);
+    toast(error.message ? error.message : "Couldn't save the checklist — check your connection and try again");
+    return;
+  }
+  if (data && data.complete === false && pendingChecklistDef && pendingChecklistDef.required){
+    toast('Still missing: ' + (data.missing || 'some items'));
+    return;
+  }
+  pendingChecklistItems = pendingChecklist.map(it => it.input_kind === 'tick' ? (it.done ? it.label : null)
+    : (it.input_kind === 'count' ? (it.confirmed ? `${it.label}: ${it.picked}` : null) : ((it.value || '').trim() ? `${it.label}: ${it.value.trim()}` : null)))
+    .filter(Boolean);
   // Proof already captured (Photo method, or pre-attached)? Finish directly.
   if (pendingPhotoUrl || pendingVerifyAttachUrls.length){
     await finishVerify(pendingMethod, pendingPhotoUrl, pendingChecklistItems);
@@ -4336,7 +5972,7 @@ async function handleVerifyPhotoSelected(e){
     const fileName = `verify-${Date.now()}-${Math.random().toString(36).slice(2,8)}.jpg`;
     const { error } = await supabase.storage.from('case-photos').upload(fileName, blob, { contentType: 'image/jpeg' });
     if (error) throw error;
-    url = supabase.storage.from('case-photos').getPublicUrl(fileName).data.publicUrl;
+    url = fileName; // Batch 1 (S1): file path, not a public link
   } catch (err){
     console.error(err);
     toast("Couldn't upload — verified without photo");
@@ -4347,15 +5983,25 @@ async function handleVerifyPhotoSelected(e){
 
 async function finishVerify(method, verifyPhotoUrl, checklistItems){
   if (pendingVerifyCardId){
-    await supabase.from('cases').update({
+    // Batch 1 (A1, AT5, AT8): the database stamps verified_by / verified_at
+    // from the login and only completes a case that is ready to verify.
+    // The result is now checked, so a refused or missed update is never
+    // reported as "Verified".
+    const { data, error } = await supabase.from('cases').update({
       status:'completed',
       verified_method: method,
-      verified_at: new Date().toISOString(),
-      verified_by: currentMember?.id || null,
       verify_photo_url: verifyPhotoUrl || null,
       verify_attachment_urls: pendingVerifyAttachUrls.length ? pendingVerifyAttachUrls : null,
       checklist_confirmed: (checklistItems && checklistItems.length) ? checklistItems : null
-    }).eq('id', pendingVerifyCardId);
+    }).eq('id', pendingVerifyCardId).select('id');
+    if (error || !data || !data.length){
+      console.error(error);
+      document.getElementById('verifyOverlay').classList.remove('open');
+      toast(error ? dbErrorText(error, "Couldn't verify — check your connection and try again")
+                  : "Couldn't verify — this case may have changed. The list has been refreshed.");
+      await loadCases();
+      return;
+    }
   }
   document.getElementById('verifyOverlay').classList.remove('open');
   toast('Verified ✓');
@@ -4387,10 +6033,23 @@ Object.assign(window, {
   advance, openReport, closeOnBg, filterAssets, pickAsset, openCustomLocation,
   selectWhat, backToWhat, confirmOtherCategory, selectSource, selectPhoto, triggerPhotoCapture, handlePhotoSelected,
   submitReport, openVerify, closeVerifyOnBg, confirmVerify, showTab,
-  doLogin, doLogout, doSetPassword, backToWhere, confirmRoomNumber, selectGmStat,
+  doLogin, doLogout, doSetPassword, showForgot, backToLogin, doForgot, doRecoverSave, backToWhere, confirmRoomNumber, selectGmStat,
   openChooser, closeChooserOnBg, chooseReport, chooseRequest,
-  reqDeptNext, selectReqCategory, reqBackToCategory, reqConfirmOther, reqConfirmQuantity, submitRequest, closeRequestOnBg,
-  filterReqOtherSuggestions, selectExistingFromOther,
+  reqDeptNext, reqBackToDepts, buildReqTypeList, selectReqType, selectReqOther, reqBackToCategory, reqConfirmOther,
+  reqBackFromDetails, setReqQty, addReqLine, setReqPlace, renderReqFields, reqConfirmDetails, reqConfirmEdit, reqConfirmYes,
+  reqBackFromStep4, submitRequest, closeRequestOnBg,
+  chooseTypeReview, openTypeReview, closeTypeReviewOnBg, saveTypeReview,
+  chooseItemLists, openItemLists, closeItemListsOnBg, saveIntakeItem, addIntakeItem, itemDirty, saveItemChanges,
+  chooseTaskTypes, openTaskTypes, closeTaskTypesOnBg, closeTaskTypes, editTaskType, saveTaskTypeForm, renderTaskTypeList,
+  reviewPick, toggleTwoTasks,
+  setChecklistPick, confirmChecklistPick, changeChecklistPick, setChecklistText,
+  chooseAutomation, closeAutomationOnBg, runAutomationNow, switchAutomation,
+  openTempRound, closeTempRoundOnBg, closeTempRound, pickRound, cancelRoundPick, confirmRoundPick, roundDmCalled,
+  openDeviations, closeDeviationOnBg, saveDeviation, decideDeviation, unitBackInUse,
+  openVeg, closeVegOnBg, changeVeg, approveVeg,
+  chooseKitchenRoles, openKitchenRoles, closeKitchenRolesOnBg, toggleRoleTag,
+  chooseRedDay, openRedDay, closeRedDayOnBg, startRedDay,
+  chooseReadiness, openReadiness, closeReadinessOnBg, toggleReady, saveReady, saveStage,
   showReqDeadlinePicker, hideReqDeadlinePicker, submitReqDeadlinePicked,
   chooseEndorsement, closeEndorseOnBg, endDeptNext, endConfirmMessage, submitEndorsement, acknowledgeEndorsement, closeEndorsement,
   showEndDatePicker, hideEndDatePicker, submitEndDatePicked,
@@ -4412,10 +6071,13 @@ Object.assign(window, {
   openReject, closeRejectOnBg, submitReject,
   openReply, closeReplyOnBg, submitReply,
   openOrderDetails, closeOrderDetailsOnBg,
-  selectWhatIdx, selectReqCategoryIdx, selectReqDeptIdx, selectEndDeptIdx, selectReportDeptIdx,
+  selectWhatIdx, selectReqDeptIdx, selectEndDeptIdx, selectReportDeptIdx,
   handleVerifyPhotoSelected, handleReqFile, handleEndFile,
-  toggleCheckItem, submitChecklist, selectSummary, handleVerifyAttach, proceedWithoutProof
+  toggleCheckItem, submitChecklist, selectSummary, handleVerifyAttach, proceedWithoutProof,
+  openFile
 });
+// Batch 4: the request sheet's inline handlers read and set the request being written (a module variable).
+Object.defineProperty(window, 'reqState', { get: () => reqState, configurable: true });
 
 checkSession();
 

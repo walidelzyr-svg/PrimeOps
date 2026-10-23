@@ -70,6 +70,17 @@
   <!-- Main menu -->
   <div id="viewMain" class="hidden">
     <button class="lang-switch" onclick="showView('lang')" style="margin-bottom:16px;" data-t="changeLanguage">Change language</button>
+    <!-- Batch 6 (PR12): hotel notice for guests (e.g. the Red-day venue) -->
+    <div id="guestNotice" style="display:none; background:#FFF4E0; border:1px solid #F3D9A4; border-radius:14px; padding:14px 16px; margin-bottom:14px;">
+      <div style="display:flex; align-items:flex-start; gap:10px;">
+        <span style="font-size:20px;">📢</span>
+        <div style="flex:1;">
+          <div style="font-size:11px; font-weight:800; letter-spacing:0.06em; text-transform:uppercase; color:#B8720A;" data-t="hotelNotice">Hotel notice</div>
+          <div id="guestNoticeText" style="font-size:14px; margin-top:4px; line-height:1.4;"></div>
+        </div>
+        <button type="button" onclick="hideGuestNotice()" style="background:none; border:none; color:var(--muted); font-size:13px; font-weight:600; padding:2px 4px; cursor:pointer;" data-t="hideNotice">Hide</button>
+      </div>
+    </div>
     <div class="tile" onclick="showView('request')">
       <span class="e">🛎️</span>
       <div><div class="t" data-t="requestSomething">Request Something</div><div class="s">Housekeeping, Maintenance, Reception, Luggage</div></div>
@@ -150,6 +161,27 @@
       <input type="datetime-local" id="timedRequestInput" style="width:100%; padding:12px; border:1px solid var(--line); border-radius:10px; font-size:15px;" />
     </div>
     <button type="button" class="primary-btn" onclick="submitTimedRequest()" data-t="send">Send</button>
+  </div>
+
+  <!-- Batch 4 (J34): item picker, 1 to 4 per item, confirmed before sending -->
+  <div id="viewItemRequest" class="hidden">
+    <button class="back-btn" onclick="showView('subcat')" data-t="back">← Back</button>
+    <h1 id="itemRequestTitle"></h1>
+    <div style="font-size:13px; color:var(--muted); margin-bottom:6px;" data-t="itemsLabel">Choose what you need (1 to 4 each)</div>
+    <div id="itemRequestList"></div>
+    <div class="field">
+      <label data-t="notesLabel">Notes (optional)</label>
+      <textarea id="itemRequestNotes" rows="2" data-t-placeholder="moreInNotes" placeholder="Need more than 4? Write it here." style="width:100%; padding:12px; border:1px solid var(--line); border-radius:10px; font-size:14px; font-family:var(--sans); resize:vertical;"></textarea>
+    </div>
+    <div id="itemRequestError" style="display:none; color:#b91c1c; font-size:13px; margin:8px 0;" data-t="chooseOneItem">Choose at least one item.</div>
+    <button type="button" class="primary-btn" onclick="reviewItemRequest()" data-t="send">Send</button>
+  </div>
+
+  <div id="viewItemConfirm" class="hidden">
+    <h1 data-t="confirmQtyTitle">Is this correct?</h1>
+    <div id="itemConfirmList" style="margin:12px 0;"></div>
+    <button type="button" class="primary-btn" id="itemConfirmBtn" onclick="sendItemRequest()" data-t="confirmYes">Confirm</button>
+    <button type="button" class="back-btn" style="margin-top:12px;" onclick="showView('itemRequest')" data-t="confirmEdit">Cancel / Edit</button>
   </div>
 
   <!-- Quantity picker: towels / pillows / toiletries -->
@@ -340,6 +372,17 @@ const T = {
   zh: { chooseLanguage:'请选择语言', changeLanguage:'更改语言', requestSomething:'请求服务', orderFoodDrinks:'点餐和饮品', housekeeping:'客房服务', maintenance:'维修服务', reception:'前台', luggage:'行李协助', transportation:'用车服务', peopleLabel:'人数', vehicleLabel:'车型', sedan:'轿车', van:'商务车', back:'← 返回', confirmTitle:'请求已发送！', confirmBody:'我们的团队已收到通知，将尽快为您提供帮助。', comingSoonTitle:'菜单即将上线', comingSoonBody:'请向我们的工作人员询问今日菜单。', enterPin:'请输入您的房间PIN码', pinHint:'如果还没有PIN码，请询问我们的工作人员。', enter:'确认', pinError:'该PIN码无法识别，或您的入住可能已结束 — 请咨询前台。', pinLocked:'尝试次数过多 — 请稍等几分钟，或联系前台寻求帮助。', otherMessage:'其他 / 留言', typeMessage:'请输入您的留言...', send:'发送', myRequests:'我的请求', myRequestsSub:'查看状态，与前台聊天', statusRejected:'已拒绝', statusPending:'待处理', statusInProgress:'处理中', statusCompleted:'已完成', feedbackPrompt:'您对处理结果满意吗？', feedbackNotePlaceholder:'还有什么想说的吗？（可选）', noRequests:'您还没有发送任何请求。', whenLabel:'什么时候？', emergencyButton:'紧急援助', emergencyConfirmTitle:'现在通知前台和保安吗？', emergencyConfirmBody:'我们的团队将立即收到您需要帮助的通知。', emergencyConfirmYes:'是的，立即通知', emergencyConfirmNo:'取消', emergencySentTitle:'帮助即将到达', emergencySentBody:'前台和保安已收到通知，正在处理中。', quantityLabel:'需要几个？', quantityOther:'其他（输入数量）', cancelRequest:'取消请求', statusCancelled:'已取消', emergencyRemarksPlaceholder:'可选：发生了什么？（可跳过）', notesLabel:'备注（可选）', notesPlaceholder:'有什么特别要求吗？（可选）', yourOrder:'您的订单', cartEmpty:'购物车是空的。', subtotal:'小计', vat:'增值税 (12%)', serviceCharge:'服务费 (10%)', total:'总计', orderNotesLabel:'备注（可选）', orderNotesPlaceholder:'有什么特别要求吗？（可选）', placeOrder:'下单', payOnDelivery:'送达时由我们的工作人员收取费用。', orderConfirmTitle:'订单已提交！', orderConfirmBody:'我们的团队已收到通知，将尽快为您送餐。费用将在送达时收取。', laundry:'洗衣', laundrySubtitle:'每次₱250，最多7公斤', laundryTitle:'洗衣服务', laundryIntro:'每次₱250，最多7公斤。', laundryLoadsLabel:'洗衣次数', laundryEstimateNote:'这是预估金额 — 前台将在称重后确认准确的费用。', laundryEstimatedTotal:'预估金额' }
 };
 
+Object.assign(T.en, { itemsLabel:'Choose what you need (1 to 4 each)', confirmQtyTitle:'Is this correct?', confirmYes:'Confirm', confirmEdit:'Cancel / Edit', chooseOneItem:'Choose at least one item.', moreInNotes:'Need more than 4? Write it here.' });
+Object.assign(T.fil, { itemsLabel:'Piliin ang kailangan (1 hanggang 4 bawat isa)', confirmQtyTitle:'Tama po ba ito?', confirmYes:'Kumpirmahin', confirmEdit:'Kanselahin / Baguhin', chooseOneItem:'Pumili ng kahit isang item.', moreInNotes:'Higit sa 4? Isulat dito.' });
+Object.assign(T.ko, { itemsLabel:'필요한 항목을 선택하세요 (각 1~4개)', confirmQtyTitle:'맞습니까?', confirmYes:'확인', confirmEdit:'취소 / 수정', chooseOneItem:'항목을 하나 이상 선택하세요.', moreInNotes:'4개 이상 필요하시면 여기에 적어 주세요.' });
+Object.assign(T.ja, { itemsLabel:'必要なものを選んでください（各1〜4）', confirmQtyTitle:'こちらでよろしいですか？', confirmYes:'確定', confirmEdit:'キャンセル / 修正', chooseOneItem:'1つ以上選んでください。', moreInNotes:'4つ以上必要な場合はこちらにご記入ください。' });
+Object.assign(T.en, { hotelNotice:'Hotel notice', hideNotice:'Hide' });
+Object.assign(T.fil, { hotelNotice:'Paalala ng hotel', hideNotice:'Itago' });
+Object.assign(T.ko, { hotelNotice:'호텔 안내', hideNotice:'숨기기' });
+Object.assign(T.ja, { hotelNotice:'ホテルからのお知らせ', hideNotice:'閉じる' });
+Object.assign(T.zh, { hotelNotice:'酒店通知', hideNotice:'隐藏' });
+Object.assign(T.zh, { itemsLabel:'请选择所需物品（每项1至4个）', confirmQtyTitle:'是否正确？', confirmYes:'确认', confirmEdit:'取消 / 修改', chooseOneItem:'请至少选择一项。', moreInNotes:'需要超过4个？请在此填写。' });
+
 let lang = (() => { try { return localStorage.getItem('poGuestLang') || 'en'; } catch(e){ return 'en'; } })();
 let sessionId = localStorage.getItem('poGuestSessionId') || null;
 let guestName = localStorage.getItem('poGuestName') || null;
@@ -352,13 +395,17 @@ if (room){
 
 let deptIds = {};
 let guestCategories = [];
+let guestItemsByCategory = {};   // Batch 4 (J34): request category -> items the guest can pick
 (async () => {
-  const [deptRes, catRes] = await Promise.all([
+  const [deptRes, catRes, itemRes] = await Promise.all([
     supabase.from('departments').select('id,code').in('code', ['HK','ENG','FO']),
-    supabase.from('request_categories').select('emoji,label,guest_department,translations').eq('active', true).eq('show_to_guests', true)
+    supabase.from('request_categories').select('emoji,label,guest_department,translations').eq('active', true).eq('show_to_guests', true),
+    supabase.from('intake_items').select('code,label,guest_category,translations,max_qty,sort_order').eq('active', true).not('guest_category', 'is', null).order('sort_order')
   ]);
   (deptRes.data || []).forEach(d => deptIds[d.code] = d.id);
   guestCategories = catRes.data || [];
+  guestItemsByCategory = {};
+  (itemRes.data || []).forEach(i => { (guestItemsByCategory[i.guest_category] = guestItemsByCategory[i.guest_category] || []).push(i); });
 })();
 
 window.setLang = async function(l){
@@ -419,7 +466,7 @@ function applyTranslations(){
 }
 
 window.showView = function(name){
-  ['lang','pin','main','request','subcat','otherMessage','order','confirm','comingSoon','myRequests','requestDetail','timedRequest','qtyRequest','transportRequest','laundryRequest','emergencyConfirm','emergencySent','menuCategories','menuItems','cart','orderConfirm'].forEach(v => {
+  ['lang','pin','main','request','subcat','otherMessage','order','confirm','comingSoon','myRequests','requestDetail','timedRequest','qtyRequest','itemRequest','itemConfirm','transportRequest','laundryRequest','emergencyConfirm','emergencySent','menuCategories','menuItems','cart','orderConfirm'].forEach(v => {
     document.getElementById('view' + v.charAt(0).toUpperCase() + v.slice(1)).classList.add('hidden');
   });
   document.getElementById('view' + name.charAt(0).toUpperCase() + name.slice(1)).classList.remove('hidden');
@@ -446,14 +493,43 @@ if (sessionId){
 
 window.showComingSoon = function(){ showView('comingSoon'); };
 
+/* Batch 6 (PR12): the current hotel notice for guests, in their language when a translation exists. */
+let guestNotice = null;
+async function loadGuestNotice(){
+  const box = document.getElementById('guestNotice');
+  if (!sessionId || !box) return;
+  const { data, error } = await supabase.rpc('get_guest_announcement', { p_session_id: sessionId });
+  if (error){ console.error('get_guest_announcement error:', error); return; }
+  guestNotice = data && data.id ? data : null;
+  let hidden = null;
+  try { hidden = localStorage.getItem('poGuestNoticeHidden'); } catch(e){}
+  if (!guestNotice || hidden === String(guestNotice.id)){ box.style.display = 'none'; return; }
+  const tr = guestNotice.translations || {};
+  document.getElementById('guestNoticeText').textContent = (lang !== 'en' && tr[lang]) ? tr[lang] : guestNotice.message;
+  box.style.display = 'block';
+}
+window.hideGuestNotice = function(){
+  if (guestNotice){ try { localStorage.setItem('poGuestNoticeHidden', String(guestNotice.id)); } catch(e){} }
+  document.getElementById('guestNotice').style.display = 'none';
+};
+const showViewBeforeNotice = window.showView;
+window.showView = function(name){
+  showViewBeforeNotice(name);
+  if (name === 'main') loadGuestNotice();
+};
+
 /* ---------------- Menu browsing + cart ---------------- */
 let menuItemsData = [];
 let cart = {}; // menu_item_id -> {name, price, qty}
 
 async function loadMenuIfNeeded(){
   if (menuItemsData.length) return;
-  const { data } = await supabase.from('menu_items').select('id,category,name,base_price,translations,outlet').eq('active', true).order('sort_order');
-  menuItemsData = data || [];
+  const [{ data }, paused] = await Promise.all([
+    supabase.from('menu_items').select('id,category,name,base_price,translations,outlet').eq('active', true).order('sort_order'),
+    supabase.rpc('get_paused_menu_items') // Batch 6: dishes paused at vegetable level V2 or V3
+  ]);
+  const pausedKeys = new Set(((paused && paused.data) || []).map(p => p.outlet + '|' + p.item_name));
+  menuItemsData = (data || []).filter(m => !pausedKeys.has(m.outlet + '|' + m.name));
 }
 
 function itemLabel(item){
@@ -646,6 +722,7 @@ window.openSubcats = function(deptCode, titleKey){
     let action;
     if (c.label === 'Transportation') action = `openTransportRequest('${deptCode}','${safeLabel}')`;
     else if (TIMED_CATEGORIES.includes(c.label)) action = `openTimedRequest('${deptCode}','${safeLabel}','${safeLocal}')`;
+    else if ((guestItemsByCategory[c.label] || []).length) action = `openItemRequest('${deptCode}','${safeLabel}','${safeLocal}')`;
     else if (QTY_CATEGORIES.includes(c.label)) action = `openQtyRequest('${deptCode}','${safeLabel}','${safeLocal}')`;
     else action = `submitGuestRequest('${deptCode}','${safeLabel}')`;
     return `<div class="tile" onclick="${action}"><span class="e">${c.emoji}</span><div class="t">${localLabel}</div></div>`;
@@ -675,6 +752,69 @@ window.submitTimedRequest = async function(){
   if (!val || !pendingTimedRequest) return;
   const when = new Date(val).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' });
   await submitGuestRequest(pendingTimedRequest.deptCode, pendingTimedRequest.label, `Requested time: ${when}`);
+};
+
+let pendingItemRequest = null;
+function guestItemLabel(i){ return (i.translations && i.translations[lang]) ? i.translations[lang] : i.label; }
+function guestEsc(v){ return String(v == null ? '' : v).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])); }
+window.openItemRequest = function(deptCode, label, localLabel){
+  const items = guestItemsByCategory[label] || [];
+  pendingItemRequest = { deptCode, label, items, sending: false };
+  document.getElementById('itemRequestTitle').textContent = localLabel;
+  document.getElementById('itemRequestNotes').value = '';
+  document.getElementById('itemRequestError').style.display = 'none';
+  const sel = 'width:84px; padding:10px; border:1px solid var(--line); border-radius:10px; font-size:15px;';
+  document.getElementById('itemRequestList').innerHTML = items.map(i => {
+    let opts = '<option value="0">–</option>';
+    for (let n = 1; n <= (i.max_qty || 4); n++) opts += `<option value="${n}">${n}</option>`;
+    return `<div style="display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid var(--line);">
+      <div style="flex:1; font-size:15px; font-weight:600;">${guestEsc(guestItemLabel(i))}</div>
+      <select id="gItem_${i.code}" style="${sel}">${opts}</select></div>`;
+  }).join('');
+  applyTranslations();
+  showView('itemRequest');
+};
+function chosenGuestItems(){
+  if (!pendingItemRequest) return [];
+  return pendingItemRequest.items.map(i => ({ i, qty: Number((document.getElementById('gItem_' + i.code) || {}).value || 0) }))
+    .filter(x => x.qty > 0);
+}
+window.reviewItemRequest = function(){
+  const chosen = chosenGuestItems();
+  if (!chosen.length){ document.getElementById('itemRequestError').style.display = 'block'; return; }
+  document.getElementById('itemRequestError').style.display = 'none';
+  const notes = document.getElementById('itemRequestNotes').value.trim();
+  document.getElementById('itemConfirmList').innerHTML = chosen.map(x =>
+    `<div style="display:flex; justify-content:space-between; padding:10px 0; border-bottom:1px solid var(--line); font-size:16px;">
+       <span>${guestEsc(guestItemLabel(x.i))}</span><strong style="font-size:20px;">× ${x.qty}</strong></div>`).join('') +
+    (notes ? `<div style="font-size:13px; color:var(--muted); margin-top:8px;">${guestEsc(notes)}</div>` : '');
+  showView('itemConfirm');
+};
+window.sendItemRequest = async function(){
+  if (!pendingItemRequest || pendingItemRequest.sending) return;     // double-tap guard
+  const chosen = chosenGuestItems();
+  if (!chosen.length){ showView('itemRequest'); return; }
+  const departmentId = deptIds[pendingItemRequest.deptCode];
+  if (!departmentId){ alert('Something went wrong — please ask our staff directly.'); return; }
+  pendingItemRequest.sending = true;
+  const btn = document.getElementById('itemConfirmBtn'); if (btn) btn.disabled = true;
+  const notes = document.getElementById('itemRequestNotes').value.trim();
+  const { data: ok, error } = await supabase.rpc('submit_guest_request_items', {
+    p_session_id: sessionId,
+    p_department_id: departmentId,
+    p_category: pendingItemRequest.label,
+    p_items: chosen.map(x => ({ code: x.i.code, qty: x.qty })),
+    p_note: notes || null,
+    p_note_translated: null
+  });
+  pendingItemRequest.sending = false;
+  if (btn) btn.disabled = false;
+  if (error || !ok){
+    console.error(error);
+    alert('Something went wrong — please ask our staff directly.');
+    return;
+  }
+  showView('confirm');
 };
 
 let pendingQtyRequest = null;
