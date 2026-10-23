@@ -1,0 +1,7 @@
+# PrimeOps moved to https://primeops-next.netlify.app (cutover, Prime Asia Hotel).
+# Every path and query string is forwarded unchanged, so printed room QR codes
+# (guest.html?room=NNN) keep working without reprinting.
+# 302 (temporary) during the 30-day rollback window, so phones do not cache it; change to 301 after.
+# sw.js stays served here: it removes the old offline copy from phones that installed the app.
+/sw.js   /sw.js   200
+/*       https://primeops-next.netlify.app/:splat   302!
