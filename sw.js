@@ -7,7 +7,7 @@
 // data — and no tokens or private attachments — can ever enter the Cache API
 // or be served across sessions or accounts on a shared device.
 // guest.html is always fetched fresh and never cached.
-const CACHE = 'primeops-v19'; // Batch 9 (2026-10-24): searchable room/place picker, extra beds count; new cache name so every device picks up the new app files
+const CACHE = 'primeops-v20'; // Batch 9b (2026-10-24): extra beds per room. Batch 9: searchable room/place picker, extra beds count; new cache name so every device picks up the new app files
 const SHELL = ['./index.html', './manifest.json', './icon.svg'];
 // The only same-origin pathnames we are allowed to cache (the static shell).
 const SHELL_PATHS = new Set(['/', '/index.html', '/manifest.json', '/icon.svg']);

@@ -407,7 +407,7 @@
       <button class="btn primary" onclick="doLogin()">Sign In</button>
     </div>
     <button type="button" class="login-link" id="forgotLink" onclick="showForgot()">Forgot password?</button>
-    <div style="text-align:center; margin-top:16px; font-size:11px; color:var(--muted);">Build 2026-10-24-02</div>
+    <div style="text-align:center; margin-top:16px; font-size:11px; color:var(--muted);">Build 2026-10-24-03</div>
   </div>
 </div>
 
@@ -554,7 +554,7 @@
         <div style="color:var(--muted); font-size:13px; margin-top:2px;" id="profilePosition">Housekeeping Attendant</div>
         <div style="color:var(--muted); font-size:12px; margin-top:10px; font-family:var(--mono);" id="profileHotel">PRIME ASIA HOTEL</div>
         <button class="btn ghost" style="margin-top:20px;" onclick="doLogout()">Sign Out</button>
-        <div style="text-align:center; margin-top:16px; font-size:11px; color:var(--muted);">Build 2026-10-24-02</div>
+        <div style="text-align:center; margin-top:16px; font-size:11px; color:var(--muted);">Build 2026-10-24-03</div>
       </div>
     </div>
   </main>
@@ -1495,7 +1495,7 @@ window.addEventListener('focus', () => {
 // running old code against a changed backend (the root cause of the Sept
 // outage). On each foreground, cheaply check the deployed build marker and, if
 // it moved, show a one-tap refresh so no one is left on a stale version.
-const APP_BUILD = '2026-10-24-02';
+const APP_BUILD = '2026-10-24-03';
 let staleBannerShown = false;
 async function checkForNewBuild(){
   if (staleBannerShown) return;
@@ -4481,6 +4481,32 @@ function setReqPlace(o){
   if (o && o.kind === 'room') reqState.room = o.v;
   else if (o && o.kind === 'place') reqState.place = o.v;
   renderReqFollowUp();
+  xbRefresh();
+}
+
+// NCI extra beds per room (WEZ, 24 Oct 2026): rooms 501, 510–517 and 601–603 take up to 4; every other room up to 2.
+// Same rule on the server (create_request, batch9_03). Before a room is chosen all 0–4 are offered; once a room is
+// chosen only its numbers are, and a number too high for the new room is cleared so staff choose again.
+const XB4_ROOMS = ['501','510','511','512','513','514','515','516','517','601','602','603'];
+function xbMax(room){ return !room ? 4 : (XB4_ROOMS.includes(String(room)) ? 4 : 2); }
+function xbHtml(){
+  const f = reqState.fields, room = reqState.room, max = xbMax(room);
+  let cur = f.extra_beds == null ? '0' : String(f.extra_beds), warn = false;
+  if (cur !== '' && Number(cur) > max){ f.extra_beds = cur = ''; warn = true; }
+  const opts = []; for (let i = 0; i <= max; i++) opts.push(String(i));
+  const all = cur === '' ? [''].concat(opts) : opts;
+  const select = `<label>Extra beds</label><select id="reqXbSelect" style="${REQ_SELECT_STYLE}" onchange="reqState.fields.extra_beds=this.value">${
+    all.map(o => `<option value="${o}"${cur === o ? ' selected' : ''}>${o === '' ? 'Choose…' : o}</option>`).join('')}</select>`;
+  const note = !room ? 'Extra beds: up to 4 in rooms 501, 510–517 and 601–603; up to 2 in other rooms.'
+    : warn ? `Room ${escHtml(room)} takes up to ${max} extra beds: choose the number again.`
+    : `Room ${escHtml(room)} takes up to ${max} extra beds.`;
+  return { select, note: `<div id="reqXbNote" style="font-size:12px; margin-top:6px; ${warn ? 'color:var(--red); font-weight:700;' : 'color:var(--muted);'}">${note}</div>` };
+}
+function xbRefresh(){
+  if (reqState.typeCode !== 'B06') return;
+  const box = document.getElementById('reqXbBox'), note = document.getElementById('reqXbNote');
+  if (!box || !note) return;
+  const x = xbHtml(); box.innerHTML = x.select; note.outerHTML = x.note;
 }
 
 function renderReqFields(){
@@ -4501,13 +4527,15 @@ function renderReqFields(){
              <div class="field"><label>To room</label>${roomSel('to_room', f.to_room || '')}</div>`;
   }
   if (code === 'B06'){
+    const xb = xbHtml();
     html += `<div style="display:flex; gap:10px;">
       <div class="field" style="flex:1;"><label>Adults</label>${sel('adults', ['','1','2','3','4','5','6'], f.adults || '')}</div>
       <div class="field" style="flex:1;"><label>Kids</label>${sel('kids', ['0','1','2','3','4'], f.kids || '0')}</div></div>
       <div style="display:flex; gap:10px;">
       <div class="field" style="flex:1;"><label>Infants</label>${sel('infants', ['0','1','2'], f.infants || '0')}</div>
       <div class="field" style="flex:1;"><label>Pets</label>${sel('pets', ['0','1','2'], f.pets || '0')}</div>
-      <div class="field" style="flex:1;"><label>Extra beds</label>${sel('extra_beds', ['0','1','2','3','4'], f.extra_beds || '0')}</div></div>
+      <div class="field" style="flex:1;" id="reqXbBox">${xb.select}</div></div>
+      ${xb.note}
       <div style="font-size:12px; color:var(--muted); margin-top:6px;">2 bottled waters per registered guest, infants and pets included (J26).</div>
       <div class="field"><label>Group or function (optional)</label><input type="text" maxlength="60" placeholder="e.g. DOH, function" value="${escHtml(f.group || '')}" oninput="if(this.value.trim()) reqState.fields.group=this.value.trim(); else delete reqState.fields.group;" /></div>`;
   }
@@ -4580,6 +4608,8 @@ function reqConfirmDetails(){
   if (mode === 'room_or_place' && !reqState.room && !reqState.place) return fail('Choose the room or the place.' + tapHint);
   if (reqState.typeCode === 'B05' && (!reqState.fields.from_room || !reqState.fields.to_room)) return fail('Choose both rooms of the transfer.' + tapHint);
   if (reqState.typeCode === 'B06' && !reqState.fields.adults) return fail('Choose the number of adults.');
+  if (reqState.typeCode === 'B06' && (reqState.fields.extra_beds === '' || Number(reqState.fields.extra_beds || 0) > xbMax(reqState.room)))
+    return fail(`Choose the number of extra beds (Room ${reqState.room} takes up to ${xbMax(reqState.room)}).`);
   if (reqState.typeCode === 'G15' && !reqState.fields.symptom) return fail('Choose what is wrong with the door.');
   errBox.classList.remove('show');
   document.getElementById('reqStep3').style.display='none';
