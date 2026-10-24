@@ -369,6 +369,15 @@
   .asset-row .n{ font-size:14px; font-weight:600; }
   .asset-row .d{ font-size:11px; color:var(--muted); font-family:var(--mono); white-space:nowrap; }
   .asset-empty{ text-align:center; color:var(--muted); font-size:12.5px; padding:16px 8px; }
+  /* ---------- Searchable room / place picker (Report or Request, step 3) ---------- */
+  .pp-list{ max-height:240px; margin-top:8px; }
+  .pp-chosen{
+    margin-top:6px; display:flex; align-items:center; justify-content:space-between; gap:10px;
+    border:1.5px solid var(--blue); background:var(--blue-tint); color:var(--blue-ink); border-radius:10px; padding:10px 12px;
+  }
+  .pp-chosen .n{ font-size:15px; font-weight:700; }
+  .pp-change{ background:none; border:none; color:var(--blue); font-weight:700; font-size:13px; cursor:pointer; padding:6px 4px; font-family:var(--sans); }
+  .asset-row.pp-other .n{ font-weight:500; }
   .times{ font-size:10.5px; color:var(--muted); font-family:var(--mono); margin-top:6px; }
   .desc{ font-size:12px; color:var(--ink); font-style:italic; margin-top:4px; line-height:1.4; }
   .desc-details{ margin-top:4px; }
@@ -398,7 +407,7 @@
       <button class="btn primary" onclick="doLogin()">Sign In</button>
     </div>
     <button type="button" class="login-link" id="forgotLink" onclick="showForgot()">Forgot password?</button>
-    <div style="text-align:center; margin-top:16px; font-size:11px; color:var(--muted);">Build 2026-10-23-02</div>
+    <div style="text-align:center; margin-top:16px; font-size:11px; color:var(--muted);">Build 2026-10-24-02</div>
   </div>
 </div>
 
@@ -545,7 +554,7 @@
         <div style="color:var(--muted); font-size:13px; margin-top:2px;" id="profilePosition">Housekeeping Attendant</div>
         <div style="color:var(--muted); font-size:12px; margin-top:10px; font-family:var(--mono);" id="profileHotel">PRIME ASIA HOTEL</div>
         <button class="btn ghost" style="margin-top:20px;" onclick="doLogout()">Sign Out</button>
-        <div style="text-align:center; margin-top:16px; font-size:11px; color:var(--muted);">Build 2026-10-23-02</div>
+        <div style="text-align:center; margin-top:16px; font-size:11px; color:var(--muted);">Build 2026-10-24-02</div>
       </div>
     </div>
   </main>
@@ -1486,7 +1495,7 @@ window.addEventListener('focus', () => {
 // running old code against a changed backend (the root cause of the Sept
 // outage). On each foreground, cheaply check the deployed build marker and, if
 // it moved, show a one-tap refresh so no one is left on a stale version.
-const APP_BUILD = '2026-10-23-02';
+const APP_BUILD = '2026-10-24-02';
 let staleBannerShown = false;
 async function checkForNewBuild(){
   if (staleBannerShown) return;
@@ -4259,7 +4268,7 @@ function selectReqType(code){
   reqState.label = t.label;
   reqState.qty = {};
   (intakeItemsByType[code] || []).forEach(i => { reqState.qty[i.code] = [0]; });
-  reqState.fields = code === 'B06' ? { kids: '0', infants: '0', pets: '0', extra_bed: 'no' } : {};
+  reqState.fields = code === 'B06' ? { kids: '0', infants: '0', pets: '0', extra_beds: '0' } : {};
   reqState.room = ''; reqState.place = ''; reqState.placeOther = ''; reqState.followUpOf = null; reqState.guestWaiting = false;
   document.getElementById('reqStep2').style.display='none';
   renderReqDetails();
@@ -4342,30 +4351,135 @@ function reqPlaceMode(){
   const t = intakeTypes.find(x => x.code === reqState.typeCode);
   return t ? t.place : 'none';
 }
+// ---- Searchable room / place picker (team feedback, 24 Oct 2026): type a room number or a place instead of
+// scrolling a long dropdown on the phone. One picker per field: 'place' (room or place of the request) and
+// 'from_room' / 'to_room' (room transfer). Enter picks the first match; "Use … as the place" keeps free text possible.
+const PP = {};
+const PP_FLOOR = { '2': '2nd floor', '3': '3rd floor', '4': '4th floor', '5': '5th floor', '6': '6th floor' };
+function ppNorm(q){
+  let s = String(q || '').trim().toLowerCase().replace(/\s+/g, ' ');
+  const m = s.match(/^(?:room|rm)\s*#?\s*(\d+)$/);
+  if (m) s = m[1];
+  return s;
+}
+function ppMatches(mode, q){
+  const all = [];
+  if (mode !== 'place') INTAKE_ROOMS.forEach(r => all.push({ kind: 'room', v: r, t: 'Room ' + r, d: PP_FLOOR[r[0]] || '' }));
+  if (mode !== 'room') INTAKE_PLACES.forEach(p => all.push({ kind: 'place', v: p, t: p, d: 'Place' }));
+  const s = ppNorm(q);
+  if (!s) return all;
+  const words = s.split(' ');
+  const scored = [];
+  all.forEach((o, i) => {
+    const name = o.t.toLowerCase();
+    let sc = 0;
+    if (o.kind === 'room' && /^\d+$/.test(s)) sc = o.v.startsWith(s) ? 3 : 0;   // a number: rooms that start with it
+    else if (name.startsWith(s) || (o.kind === 'place' && name.split(/[\s\/·-]+/).some(w => w.startsWith(s)))) sc = 3;
+    else if (words.every(w => name.split(/[\s\/·-]+/).some(x => x.startsWith(w)))) sc = 2;
+    else if (name.includes(s)) sc = 1;
+    if (sc) scored.push([sc, i, o]);
+  });
+  return scored.sort((a, b) => (b[0] - a[0]) || (a[1] - b[1])).map(x => x[2]);
+}
+function ppPlaceholder(mode){
+  return mode === 'room' ? 'Type the room number, e.g. 305' : (mode === 'place' ? 'Type the place, e.g. lobby' : 'Type a room number or place, e.g. 305, lobby');
+}
+function ppHtml(key){
+  const p = PP[key];
+  if (p.label){
+    return `<div class="pp-chosen" id="pp_${key}"><span class="n">${escHtml(p.label)}</span>` +
+           `<button type="button" class="pp-change" onclick="ppChange('${key}')">Change</button></div>`;
+  }
+  return `<div id="pp_${key}">
+    <input type="text" id="ppIn_${key}" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="done"
+      inputmode="${p.mode === 'room' ? 'numeric' : 'text'}" placeholder="${ppPlaceholder(p.mode)}"
+      oninput="ppFilter('${key}')" onfocus="ppFocus('${key}')" onkeydown="ppKey(event, '${key}')" value="${escHtml(p.q || '')}" />
+    <div class="asset-results pp-list" id="ppList_${key}">${ppListHtml(key)}</div></div>`;
+}
+function ppListHtml(key){
+  const p = PP[key];
+  const q = (p.q || '').trim();
+  p.results = ppMatches(p.mode, q);
+  let html = p.results.map((o, i) =>
+    `<div class="asset-row" onclick="ppPick('${key}', ${i})"><span class="n">${escHtml(o.t)}</span><span class="d">${escHtml(o.d)}</span></div>`).join('');
+  const exact = p.results.some(o => o.t.toLowerCase() === q.toLowerCase());
+  if (q && p.mode !== 'room' && !exact && !/^\d+$/.test(ppNorm(q))){
+    html += `<div class="asset-row pp-other" onclick="ppPick('${key}', -1)"><span class="n">✏️ Use “${escHtml(q.slice(0, 80))}” as the place</span></div>`;
+  }
+  if (!html){
+    html = `<div class="asset-empty">${p.mode === 'room'
+      ? 'No such room. Rooms are 201–217, 301–317, 401–417, 501–517 and 601–603.'
+      : 'Nothing matches. Try another word.'}</div>`;
+  }
+  return html;
+}
+function ppFilter(key){
+  const p = PP[key]; const el = document.getElementById('ppIn_' + key);
+  if (!p || !el) return;
+  p.q = el.value;
+  document.getElementById('ppList_' + key).innerHTML = ppListHtml(key);
+}
+function ppFocus(key){
+  const el = document.getElementById('ppIn_' + key);
+  if (el) setTimeout(() => { try { el.scrollIntoView({ block: 'start', behavior: 'smooth' }); } catch (e) {} }, 300);
+}
+function ppKey(e, key){
+  if (e.key !== 'Enter') return;
+  e.preventDefault();
+  const p = PP[key];
+  if (p && p.results && p.results.length) ppPick(key, 0);
+  else if (p && (p.q || '').trim() && p.mode !== 'room') ppPick(key, -1);
+}
+function ppPick(key, i){
+  const p = PP[key]; if (!p) return;
+  let o;
+  if (i === -1){
+    const t = (p.q || '').trim().slice(0, 80);
+    if (!t) return;
+    o = { kind: 'place', v: t, t: t };
+  } else {
+    o = p.results && p.results[i];
+    if (!o) return;
+  }
+  p.label = o.t; p.q = '';
+  p.onPick(o);
+  const box = document.getElementById('pp_' + key);
+  if (box) box.outerHTML = ppHtml(key);
+}
+// Next pressed with text typed but no row tapped: an exact room number or place name counts as chosen.
+function ppCommitExact(key){
+  const p = PP[key];
+  if (!p || p.label || !(p.q || '').trim() || !document.getElementById('ppIn_' + key)) return;
+  const s = ppNorm(p.q);
+  const hit = ppMatches(p.mode, p.q).find(o => o.kind === 'room' ? o.v === s : o.t.toLowerCase() === s);
+  if (!hit) return;
+  p.label = hit.t; p.q = '';
+  p.onPick(hit);
+  const box = document.getElementById('pp_' + key);
+  if (box) box.outerHTML = ppHtml(key);
+}
+function ppChange(key){
+  const p = PP[key]; if (!p) return;
+  p.label = ''; p.q = '';
+  p.onPick(null);
+  const box = document.getElementById('pp_' + key);
+  if (box) box.outerHTML = ppHtml(key);
+  const el = document.getElementById('ppIn_' + key);
+  if (el) el.focus();
+}
+
 function renderReqPlace(){
   const mode = reqPlaceMode();
   const box = document.getElementById('reqPlaceBox');
   if (mode === 'none'){ box.innerHTML = ''; return; }
-  const roomOpts = INTAKE_ROOMS.map(r => `<option value="room:${r}"${reqState.room === r ? ' selected' : ''}>Room ${r}</option>`).join('');
-  const placeOpts = INTAKE_PLACES.map(p => `<option value="place:${escHtml(p)}"${reqState.place === p ? ' selected' : ''}>${escHtml(p)}</option>`).join('');
   const label = mode === 'room' ? 'Room' : (mode === 'place' ? 'Place' : 'Room or place');
-  box.innerHTML = `<div class="field"><label>${label}</label>
-    <select id="reqPlaceSelect" style="${REQ_SELECT_STYLE}" onchange="setReqPlace(this.value)">
-      <option value="">Choose…</option>
-      ${mode !== 'place' ? `<optgroup label="Rooms">${roomOpts}</optgroup>` : ''}
-      ${mode !== 'room' ? `<optgroup label="Places">${placeOpts}<option value="other"${reqState.placeOther ? ' selected' : ''}>Other place…</option></optgroup>` : ''}
-    </select>
-    ${reqState.placeOther !== '' || (document.getElementById('reqPlaceSelect') || {}).value === 'other'
-      ? `<input type="text" id="reqPlaceOtherInput" maxlength="80" style="margin-top:8px;" placeholder="Where exactly?" value="${escHtml(reqState.placeOther)}" oninput="reqState.placeOther=this.value" />` : ''}
-  </div>`;
+  PP.place = { mode, q: '', label: reqState.room ? 'Room ' + reqState.room : (reqState.place || ''), onPick: setReqPlace };
+  box.innerHTML = `<div class="field"><label>${label}</label>${ppHtml('place')}</div>`;
 }
-function setReqPlace(v){
-  reqState.room = ''; reqState.place = '';
-  if (v.startsWith('room:')) reqState.room = v.slice(5);
-  else if (v.startsWith('place:')) reqState.place = v.slice(6);
-  if (v === 'other'){ reqState.placeOther = reqState.placeOther || ' '; } else { reqState.placeOther = ''; }
-  renderReqPlace();
-  if (v === 'other'){ const el = document.getElementById('reqPlaceOtherInput'); if (el){ el.value = ''; reqState.placeOther = ''; el.focus(); } }
+function setReqPlace(o){
+  reqState.room = ''; reqState.place = ''; reqState.placeOther = '';
+  if (o && o.kind === 'room') reqState.room = o.v;
+  else if (o && o.kind === 'place') reqState.place = o.v;
   renderReqFollowUp();
 }
 
@@ -4377,8 +4491,11 @@ function renderReqFields(){
   let html = '';
   const sel = (key, opts, cur) => `<select style="${REQ_SELECT_STYLE}" onchange="reqState.fields['${key}']=this.value">${
     opts.map(o => `<option value="${escHtml(o)}"${String(cur) === String(o) ? ' selected' : ''}>${o === '' ? 'Choose…' : escHtml(o)}</option>`).join('')}</select>`;
-  const roomSel = (key, cur) => `<select style="${REQ_SELECT_STYLE}" onchange="reqState.fields['${key}']=this.value"><option value="">Choose…</option>${
-    INTAKE_ROOMS.map(r => `<option value="${r}"${cur === r ? ' selected' : ''}>Room ${r}</option>`).join('')}</select>`;
+  const roomSel = (key, cur) => {
+    PP[key] = { mode: 'room', q: '', label: cur ? 'Room ' + cur : '',
+                onPick: o => { if (o) reqState.fields[key] = o.v; else delete reqState.fields[key]; } };
+    return ppHtml(key);
+  };
   if (code === 'B05'){
     html += `<div class="field"><label>From room</label>${roomSel('from_room', f.from_room || '')}</div>
              <div class="field"><label>To room</label>${roomSel('to_room', f.to_room || '')}</div>`;
@@ -4390,7 +4507,7 @@ function renderReqFields(){
       <div style="display:flex; gap:10px;">
       <div class="field" style="flex:1;"><label>Infants</label>${sel('infants', ['0','1','2'], f.infants || '0')}</div>
       <div class="field" style="flex:1;"><label>Pets</label>${sel('pets', ['0','1','2'], f.pets || '0')}</div>
-      <div class="field" style="flex:1;"><label>Extra bed</label>${sel('extra_bed', ['no','yes'], f.extra_bed || 'no')}</div></div>
+      <div class="field" style="flex:1;"><label>Extra beds</label>${sel('extra_beds', ['0','1','2','3','4'], f.extra_beds || '0')}</div></div>
       <div style="font-size:12px; color:var(--muted); margin-top:6px;">2 bottled waters per registered guest, infants and pets included (J26).</div>
       <div class="field"><label>Group or function (optional)</label><input type="text" maxlength="60" placeholder="e.g. DOH, function" value="${escHtml(f.group || '')}" oninput="if(this.value.trim()) reqState.fields.group=this.value.trim(); else delete reqState.fields.group;" /></div>`;
   }
@@ -4451,17 +4568,17 @@ function reqConfirmDetails(){
   const errBox = document.getElementById('reqQuantityError');
   const fail = (msg) => { errBox.textContent = msg; errBox.classList.add('show'); };
   reqState.note = document.getElementById('reqNoteInput').value.trim();
-  const otherEl = document.getElementById('reqPlaceOtherInput');
-  if (otherEl) reqState.placeOther = otherEl.value.trim();
-  if (otherEl && reqState.placeOther) reqState.place = reqState.placeOther;
+  ['place', 'from_room', 'to_room'].forEach(ppCommitExact);
+  const typedNotPicked = ['place', 'from_room', 'to_room'].some(k => PP[k] && !PP[k].label && (PP[k].q || '').trim() && document.getElementById('ppIn_' + k));
   const mode = reqPlaceMode();
   const lines = reqItemLines();
   const hasItems = (intakeItemsByType[reqState.typeCode] || []).length > 0;
   if (hasItems && !lines.length && !reqState.note) return fail('Choose at least one item and how many, or write what is needed in the note.');
-  if (mode === 'room' && !reqState.room) return fail('Choose the room.');
-  if (mode === 'place' && !reqState.place) return fail('Choose the place.');
-  if (mode === 'room_or_place' && !reqState.room && !reqState.place) return fail('Choose the room or the place.');
-  if (reqState.typeCode === 'B05' && (!reqState.fields.from_room || !reqState.fields.to_room)) return fail('Choose both rooms of the transfer.');
+  const tapHint = typedNotPicked ? ' Tap it in the list under the box.' : '';
+  if (mode === 'room' && !reqState.room) return fail('Choose the room.' + tapHint);
+  if (mode === 'place' && !reqState.place) return fail('Choose the place.' + tapHint);
+  if (mode === 'room_or_place' && !reqState.room && !reqState.place) return fail('Choose the room or the place.' + tapHint);
+  if (reqState.typeCode === 'B05' && (!reqState.fields.from_room || !reqState.fields.to_room)) return fail('Choose both rooms of the transfer.' + tapHint);
   if (reqState.typeCode === 'B06' && !reqState.fields.adults) return fail('Choose the number of adults.');
   if (reqState.typeCode === 'G15' && !reqState.fields.symptom) return fail('Choose what is wrong with the door.');
   errBox.classList.remove('show');
@@ -6037,6 +6154,7 @@ Object.assign(window, {
   openChooser, closeChooserOnBg, chooseReport, chooseRequest,
   reqDeptNext, reqBackToDepts, buildReqTypeList, selectReqType, selectReqOther, reqBackToCategory, reqConfirmOther,
   reqBackFromDetails, setReqQty, addReqLine, setReqPlace, renderReqFields, reqConfirmDetails, reqConfirmEdit, reqConfirmYes,
+  ppFilter, ppFocus, ppKey, ppPick, ppChange,
   reqBackFromStep4, submitRequest, closeRequestOnBg,
   chooseTypeReview, openTypeReview, closeTypeReviewOnBg, saveTypeReview,
   chooseItemLists, openItemLists, closeItemListsOnBg, saveIntakeItem, addIntakeItem, itemDirty, saveItemChanges,
