@@ -407,7 +407,7 @@
       <button class="btn primary" onclick="doLogin()">Sign In</button>
     </div>
     <button type="button" class="login-link" id="forgotLink" onclick="showForgot()">Forgot password?</button>
-    <div style="text-align:center; margin-top:16px; font-size:11px; color:var(--muted);">Build 2026-10-25-02</div>
+    <div style="text-align:center; margin-top:16px; font-size:11px; color:var(--muted);">Build 2026-10-25-03</div>
   </div>
 </div>
 
@@ -554,7 +554,7 @@
         <div style="color:var(--muted); font-size:13px; margin-top:2px;" id="profilePosition">Housekeeping Attendant</div>
         <div style="color:var(--muted); font-size:12px; margin-top:10px; font-family:var(--mono);" id="profileHotel">PRIME ASIA HOTEL</div>
         <button class="btn ghost" style="margin-top:20px;" onclick="doLogout()">Sign Out</button>
-        <div style="text-align:center; margin-top:16px; font-size:11px; color:var(--muted);">Build 2026-10-25-02</div>
+        <div style="text-align:center; margin-top:16px; font-size:11px; color:var(--muted);">Build 2026-10-25-03</div>
       </div>
     </div>
   </main>
@@ -1495,7 +1495,7 @@ window.addEventListener('focus', () => {
 // running old code against a changed backend (the root cause of the Sept
 // outage). On each foreground, cheaply check the deployed build marker and, if
 // it moved, show a one-tap refresh so no one is left on a stale version.
-const APP_BUILD = '2026-10-25-02';
+const APP_BUILD = '2026-10-25-03';
 let staleBannerShown = false;
 async function checkForNewBuild(){
   if (staleBannerShown) return;
@@ -5192,7 +5192,7 @@ async function openAutomation(){
   const body = document.getElementById('automationBody');
   body.innerHTML = '<p style="color:var(--muted); font-size:13px;">Loading…</p>';
   const [t, a] = await Promise.all([
-    supabase.from('recurring_templates').select('code,name,note,decision,frequency,enabled,automation_key,run_from').order('code'),
+    supabase.from('recurring_templates').select('code,name,note,decision,frequency,enabled,automation_key,run_from,auto_on,only_shift,on_weekday').order('code'),
     supabase.from('automation_settings').select('key,enabled,decision,note').order('key')
   ]);
   if (t.error || a.error){ body.innerHTML = '<p style="color:var(--red); font-size:13px;">Could not load the list.</p>'; return; }
@@ -5203,38 +5203,72 @@ function closeAutomationOnBg(e){ if (e.target.id === 'automationOverlay') docume
 // Batch 7 (J10 answer, 21 Oct): any Admin or the GM switches the air-out; the scheduled tasks stay with the GM (D4).
 const AUTOMATION_NAMES = { room_airout: 'Room air-out after each check-out', recurring_tasks: 'Scheduled tasks created automatically',
   water_heaters: 'Water heater reminders for Engineering' };
-// Batch 10 (GM 25 Oct 2026): a template with its own switch (automation_key) is created automatically at its time while
-// that switch is on; it has no "Create now" button.
+// Batch 10 (GM 25 Oct 2026): each scheduled task has its own switch (GM only). A task switched ON is created automatically
+// from then on and is listed under "Created automatically"; switch it OFF any time (e.g. very busy days). The main switch
+// pauses all of them at once; the water heater reminders have their own switch. "Create now" makes one task by hand.
 function automationTimeLabel(hhmm){
   const [h, m] = String(hhmm || '').split(':').map(Number);
   if (isNaN(h)) return '';
   return `${h % 12 === 0 ? 12 : h % 12}${m ? ':' + String(m).padStart(2, '0') : ''} ${h < 12 ? 'AM' : 'PM'}`;
 }
+const AUTOMATION_SHIFTS = { AM: 'morning shift', PM: 'afternoon shift', NIGHT: 'night shift' };
+const AUTOMATION_DAYS = ['', 'Mondays', 'Tuesdays', 'Wednesdays', 'Thursdays', 'Fridays', 'Saturdays', 'Sundays'];
+function automationScheduleLabel(t){
+  switch (t.frequency){
+    case 'daily_at': return `Every day at ${automationTimeLabel(t.run_from)}`;
+    case 'per_shift':
+      if (t.on_weekday) return `${AUTOMATION_DAYS[t.on_weekday] || 'Weekly'}, ${AUTOMATION_SHIFTS[t.only_shift] || 'once a day'}`;
+      return t.only_shift ? `Every day, ${AUTOMATION_SHIFTS[t.only_shift] || t.only_shift}` : 'Every shift (morning, afternoon and night)';
+    case 'daily_per_occupied_room': return `Every day from ${automationTimeLabel(t.run_from || '00:00')}: one task per occupied room`;
+    case 'cycle_by_room': return 'On the cleaning cycle: rooms floor by floor';
+    case 'cycle_public': return 'On the cleaning cycle: public areas';
+    default: return '';
+  }
+}
 function renderAutomation(){
   const body = document.getElementById('automationBody');
   const gm = isGM();
-  const keyed = automationTemplates.filter(t => t.automation_key), manual = automationTemplates.filter(t => !t.automation_key);
   const switchOn = key => !!(automationSettings.find(a => a.key === key) || {}).enabled;
+  const gate = t => t.automation_key || 'recurring_tasks';
+  const head = txt => `<div style="font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; color:var(--muted); margin:16px 0 6px;">${txt}</div>`;
+  const active = automationTemplates.filter(t => t.auto_on), inactive = automationTemplates.filter(t => !t.auto_on);
+  const card = (t, on) => {
+    const running = on && switchOn(gate(t));
+    const state = !on ? '' : running ? '<span style="color:var(--green); font-weight:700;">ON</span>'
+      : `<span style="color:var(--red); font-weight:700;">Paused</span> (${escHtml(gate(t) === 'recurring_tasks' ? 'the main switch' : (AUTOMATION_NAMES[gate(t)] || gate(t)))} is OFF)`;
+    const buttons = (!on && !t.automation_key ? `<button class="btn primary" style="width:auto; padding:8px 14px; margin:8px 8px 0 0;" onclick="runAutomationNow('${t.code}')">Create now</button>` : '') +
+      (gm ? `<button class="btn ghost" style="width:auto; padding:8px 14px; margin-top:8px;" onclick="switchTask('${t.code}', ${!on})">${on ? 'Switch off' : 'Switch on'}</button>`
+          : '<div style="font-size:11px; color:var(--muted); margin-top:4px;">Only the GM can switch this.</div>');
+    return `<div class="asset-row" style="display:block;" data-task="${escHtml(t.code)}" data-on="${on ? 1 : 0}">
+        <div style="font-weight:700; font-size:14px;">${escHtml(t.name)}</div>
+        <div style="font-size:11px; color:var(--muted); margin-top:2px;">${escHtml(t.note || '')}${t.decision ? ' · ' + escHtml(t.decision) : ''}</div>
+        <div style="font-size:12px; margin-top:6px;">${escHtml(automationScheduleLabel(t))}${state ? ' · ' + state : ''}</div>
+        <div>${buttons}</div>
+      </div>`;
+  };
   body.innerHTML =
-    `<p style="font-size:12px; color:var(--muted); margin:0 0 8px;">Until launch, scheduled tasks are created only when you tap "Create now" (D4). A second tap in the same day or shift creates nothing.</p>` +
-    manual.map(t => `<div class="asset-row" style="display:block;">
-        <div style="font-weight:700; font-size:14px;">${escHtml(t.name)}</div>
-        <div style="font-size:11px; color:var(--muted); margin-top:2px;">${escHtml(t.note || '')}${t.decision ? ' · ' + escHtml(t.decision) : ''}</div>
-        <button class="btn primary" style="width:auto; padding:8px 14px; margin-top:8px;" onclick="runAutomationNow('${t.code}')">Create now</button>
-      </div>`).join('') +
-    (keyed.length ? `<div style="font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; color:var(--muted); margin:16px 0 6px;">Created automatically</div>` : '') +
-    keyed.map(t => `<div class="asset-row" style="display:block;" data-auto="${escHtml(t.code)}">
-        <div style="font-weight:700; font-size:14px;">${escHtml(t.name)}</div>
-        <div style="font-size:11px; color:var(--muted); margin-top:2px;">${escHtml(t.note || '')}${t.decision ? ' · ' + escHtml(t.decision) : ''}</div>
-        <div style="font-size:12px; margin-top:6px;">Automatic every day at ${escHtml(automationTimeLabel(t.run_from))} · ${escHtml(AUTOMATION_NAMES[t.automation_key] || t.automation_key)}: ${switchOn(t.automation_key) ? '<span style="color:var(--green); font-weight:700;">ON</span>' : '<span style="color:var(--red); font-weight:700;">OFF</span>'}</div>
-      </div>`).join('') +
-    `<div style="font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; color:var(--muted); margin:16px 0 6px;">Automation switches</div>` +
+    `<p style="font-size:12px; color:var(--muted); margin:0 0 8px;">Switch a task ON to have it created automatically: it moves to "Created automatically". Switch it OFF any time, for example on very busy days. "Create now" makes one task by hand; a second tap in the same day or shift creates nothing.</p>` +
+    head(`Created automatically (${active.length})`) +
+    (active.length ? active.map(t => card(t, true)).join('') : '<p style="font-size:12px; color:var(--muted); margin:0;">None yet.</p>') +
+    head(`Not automatic (${inactive.length})`) +
+    (inactive.length ? inactive.map(t => card(t, false)).join('') : '<p style="font-size:12px; color:var(--muted); margin:0;">All scheduled tasks are automatic.</p>') +
+    head('Automation switches') +
     automationSettings.map(a => `<div class="asset-row" style="display:block;">
         <div style="font-weight:700; font-size:14px;">${escHtml(AUTOMATION_NAMES[a.key] || a.key)}: ${a.enabled ? '<span style="color:var(--green);">ON</span>' : '<span style="color:var(--red);">OFF</span>'}</div>
         <div style="font-size:11px; color:var(--muted); margin-top:2px;">${escHtml(a.note || '')}${a.decision ? ' (' + escHtml(a.decision) + ')' : ''}</div>
         ${(a.key === 'room_airout' ? hasHotelView() : gm) ? `<button class="btn ghost" style="width:auto; padding:8px 14px; margin-top:8px;" onclick="switchAutomation('${a.key}', ${!a.enabled})">${a.enabled ? 'Switch off' : 'Switch on'}</button>`
              : '<div style="font-size:11px; color:var(--muted); margin-top:4px;">Only the GM can switch this.</div>'}
       </div>`).join('');
+}
+async function switchTask(code, on){
+  const t = automationTemplates.find(x => x.code === code) || { name: code };
+  const msg = on ? `Switch ON: ${t.name}?\n\nIt will be created automatically from now on (${automationScheduleLabel(t)}). If one is due now, it appears within a minute.`
+                 : `Switch OFF: ${t.name}?\n\nNo more will be created automatically. Tasks already created stay as they are.`;
+  if (!window.confirm(msg)) return;
+  const { error } = await supabase.rpc('set_recurring_auto', { p_code: code, p_on: on });
+  if (error){ console.error(error); toast(error.message || "Couldn't change the switch"); return; }
+  toast(on ? 'Switched on: created automatically from now on' : 'Switched off');
+  await openAutomation();
 }
 async function runAutomationNow(code){
   const { data, error } = await supabase.rpc('run_recurring_now', { p_template_code: code });
@@ -6207,7 +6241,7 @@ Object.assign(window, {
   chooseTaskTypes, openTaskTypes, closeTaskTypesOnBg, closeTaskTypes, editTaskType, saveTaskTypeForm, renderTaskTypeList,
   reviewPick, toggleTwoTasks,
   setChecklistPick, confirmChecklistPick, changeChecklistPick, setChecklistText,
-  chooseAutomation, closeAutomationOnBg, runAutomationNow, switchAutomation,
+  chooseAutomation, closeAutomationOnBg, switchTask, runAutomationNow, switchAutomation,
   openTempRound, closeTempRoundOnBg, closeTempRound, pickRound, cancelRoundPick, confirmRoundPick, roundDmCalled,
   openDeviations, closeDeviationOnBg, saveDeviation, decideDeviation, unitBackInUse,
   openVeg, closeVegOnBg, changeVeg, approveVeg,
