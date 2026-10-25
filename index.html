@@ -407,7 +407,7 @@
       <button class="btn primary" onclick="doLogin()">Sign In</button>
     </div>
     <button type="button" class="login-link" id="forgotLink" onclick="showForgot()">Forgot password?</button>
-    <div style="text-align:center; margin-top:16px; font-size:11px; color:var(--muted);">Build 2026-10-24-03</div>
+    <div style="text-align:center; margin-top:16px; font-size:11px; color:var(--muted);">Build 2026-10-25-02</div>
   </div>
 </div>
 
@@ -554,7 +554,7 @@
         <div style="color:var(--muted); font-size:13px; margin-top:2px;" id="profilePosition">Housekeeping Attendant</div>
         <div style="color:var(--muted); font-size:12px; margin-top:10px; font-family:var(--mono);" id="profileHotel">PRIME ASIA HOTEL</div>
         <button class="btn ghost" style="margin-top:20px;" onclick="doLogout()">Sign Out</button>
-        <div style="text-align:center; margin-top:16px; font-size:11px; color:var(--muted);">Build 2026-10-24-03</div>
+        <div style="text-align:center; margin-top:16px; font-size:11px; color:var(--muted);">Build 2026-10-25-02</div>
       </div>
     </div>
   </main>
@@ -1495,7 +1495,7 @@ window.addEventListener('focus', () => {
 // running old code against a changed backend (the root cause of the Sept
 // outage). On each foreground, cheaply check the deployed build marker and, if
 // it moved, show a one-tap refresh so no one is left on a stale version.
-const APP_BUILD = '2026-10-24-03';
+const APP_BUILD = '2026-10-25-02';
 let staleBannerShown = false;
 async function checkForNewBuild(){
   if (staleBannerShown) return;
@@ -5192,7 +5192,7 @@ async function openAutomation(){
   const body = document.getElementById('automationBody');
   body.innerHTML = '<p style="color:var(--muted); font-size:13px;">Loading…</p>';
   const [t, a] = await Promise.all([
-    supabase.from('recurring_templates').select('code,name,note,decision,frequency,enabled').order('code'),
+    supabase.from('recurring_templates').select('code,name,note,decision,frequency,enabled,automation_key,run_from').order('code'),
     supabase.from('automation_settings').select('key,enabled,decision,note').order('key')
   ]);
   if (t.error || a.error){ body.innerHTML = '<p style="color:var(--red); font-size:13px;">Could not load the list.</p>'; return; }
@@ -5201,16 +5201,32 @@ async function openAutomation(){
 }
 function closeAutomationOnBg(e){ if (e.target.id === 'automationOverlay') document.getElementById('automationOverlay').classList.remove('open'); }
 // Batch 7 (J10 answer, 21 Oct): any Admin or the GM switches the air-out; the scheduled tasks stay with the GM (D4).
-const AUTOMATION_NAMES = { room_airout: 'Room air-out after each check-out', recurring_tasks: 'Scheduled tasks created automatically' };
+const AUTOMATION_NAMES = { room_airout: 'Room air-out after each check-out', recurring_tasks: 'Scheduled tasks created automatically',
+  water_heaters: 'Water heater reminders for Engineering' };
+// Batch 10 (GM 25 Oct 2026): a template with its own switch (automation_key) is created automatically at its time while
+// that switch is on; it has no "Create now" button.
+function automationTimeLabel(hhmm){
+  const [h, m] = String(hhmm || '').split(':').map(Number);
+  if (isNaN(h)) return '';
+  return `${h % 12 === 0 ? 12 : h % 12}${m ? ':' + String(m).padStart(2, '0') : ''} ${h < 12 ? 'AM' : 'PM'}`;
+}
 function renderAutomation(){
   const body = document.getElementById('automationBody');
   const gm = isGM();
+  const keyed = automationTemplates.filter(t => t.automation_key), manual = automationTemplates.filter(t => !t.automation_key);
+  const switchOn = key => !!(automationSettings.find(a => a.key === key) || {}).enabled;
   body.innerHTML =
     `<p style="font-size:12px; color:var(--muted); margin:0 0 8px;">Until launch, scheduled tasks are created only when you tap "Create now" (D4). A second tap in the same day or shift creates nothing.</p>` +
-    automationTemplates.map(t => `<div class="asset-row" style="display:block;">
+    manual.map(t => `<div class="asset-row" style="display:block;">
         <div style="font-weight:700; font-size:14px;">${escHtml(t.name)}</div>
         <div style="font-size:11px; color:var(--muted); margin-top:2px;">${escHtml(t.note || '')}${t.decision ? ' · ' + escHtml(t.decision) : ''}</div>
         <button class="btn primary" style="width:auto; padding:8px 14px; margin-top:8px;" onclick="runAutomationNow('${t.code}')">Create now</button>
+      </div>`).join('') +
+    (keyed.length ? `<div style="font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; color:var(--muted); margin:16px 0 6px;">Created automatically</div>` : '') +
+    keyed.map(t => `<div class="asset-row" style="display:block;" data-auto="${escHtml(t.code)}">
+        <div style="font-weight:700; font-size:14px;">${escHtml(t.name)}</div>
+        <div style="font-size:11px; color:var(--muted); margin-top:2px;">${escHtml(t.note || '')}${t.decision ? ' · ' + escHtml(t.decision) : ''}</div>
+        <div style="font-size:12px; margin-top:6px;">Automatic every day at ${escHtml(automationTimeLabel(t.run_from))} · ${escHtml(AUTOMATION_NAMES[t.automation_key] || t.automation_key)}: ${switchOn(t.automation_key) ? '<span style="color:var(--green); font-weight:700;">ON</span>' : '<span style="color:var(--red); font-weight:700;">OFF</span>'}</div>
       </div>`).join('') +
     `<div style="font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; color:var(--muted); margin:16px 0 6px;">Automation switches</div>` +
     automationSettings.map(a => `<div class="asset-row" style="display:block;">
